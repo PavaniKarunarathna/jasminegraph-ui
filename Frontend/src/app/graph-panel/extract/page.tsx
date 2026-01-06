@@ -203,17 +203,8 @@ export default function GraphUpload() {
 
     return (
         <>
-            <Spin
-              spinning={loading}
-              fullscreen
-              indicator={<LoadingOutlined spin style={{ fontSize: 48 }} />}
-              tip={
-                  <div style={{ marginTop: 12, fontSize: 16 }}>
-                      Fetching data from server<br />
-                      Please wait, this may take a few moments.
-                  </div>
-              }
-            />
+            <Spin spinning={loading} indicator={<LoadingOutlined spin />} fullscreen />
+
             {(showUploadSection || (uploadBytesGraphs && uploadBytesGraphs.updates.length === 0)) &&
                 <div className="graph-upload-panel">
                     <Typography.Title level={4} style={{ margin: "20px 0px" }}>
