@@ -32,7 +32,7 @@ export function useIframeAvailability(timeoutMs: number = 6000): [
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [iframeError, timeoutMs]);
 
   const handleIframeError = useCallback(() => {
     setIframeError("embed");
