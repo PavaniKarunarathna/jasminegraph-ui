@@ -93,7 +93,7 @@ export async function getKGConstructionMetaByIdRepo(
     return result.rows[0] || null;
 }
 
-//Get by user
+//Get KG Construction metadata by cluster ID
 export async function getKGConstructionMetaByClusterRepo(
     clusterId: number
 ): Promise<KGConstructionMeta[]> {
