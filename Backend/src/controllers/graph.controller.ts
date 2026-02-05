@@ -31,7 +31,7 @@ import {
     updateKGConstructionMetaStatusRepo,
     deleteKGConstructionMetaRepo,
     KGStatus
-} from "../repository/kg-construction-meta.respository";
+} from "../repository/kg-construction-meta.repository";
 
 export let socket;
 export let tSocket;
@@ -89,7 +89,6 @@ export const telnetConnection = (connection: IConnection) => (callback: any) => 
     }
 };
 
-
 const getGraphList = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
@@ -119,9 +118,6 @@ const getGraphList = async (req: Request, res: Response) => {
     return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
   }
 };
-
-
-
 
 const getClusterProperties = async (req: Request, res: Response) => {
   const connection = await getClusterDetails(req);
@@ -194,6 +190,7 @@ const uploadGraph = async (req: Request, res: Response) => {
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
+
 export const constructKG = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
@@ -284,16 +281,13 @@ export const constructKG = async (req: Request, res: Response) => {
                             message: "Knowledge Graph construction initiated",
                             cluster_id: clusterId!
                         });
-
                     }
-
 
                     console.log("KG extraction started");
                     res.status(HTTP[200]).send({message: "Knowledge Graph construction Started"});
                     // tSocket.end();
                 }
             });
-
 
             // Kick off by sending constructkg
             tSocket.write(CONSTRUCT_KG_COMMAND + "\n");
@@ -303,6 +297,7 @@ export const constructKG = async (req: Request, res: Response) => {
         return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
+
 export const stopConstructKG = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
@@ -446,7 +441,6 @@ export const updateKGConstructionMetaByClusterId = async (
     }
 };
 
-
 const removeGraph = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
@@ -557,7 +551,6 @@ const constructKGHadoop = async (req: Request, res: Response) => {
     }
 };
 
-
 const triangleCount = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
@@ -628,7 +621,5 @@ const getGraphData = async (req, res) => {
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 }
-
-
 
 export { getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};

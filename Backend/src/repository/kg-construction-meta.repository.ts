@@ -44,9 +44,7 @@ export interface KGConstructionMeta {
     updated_at: string;
 }
 
-/**
- * Create new KG Construction metadata
- */
+//Create new KG Construction metadata
 export async function createKGConstructionMetaRepo(
     meta: Omit<KGConstructionMeta, 'id' | 'created_at' | 'updated_at'>
 ): Promise<KGConstructionMeta> {
@@ -76,9 +74,7 @@ export async function createKGConstructionMetaRepo(
     return result.rows[0];
 }
 
-/**
- * Get all KGConstructionMeta entries
- */
+//Get all KGConstructionMeta entries
 export async function getAllKGConstructionMetaRepo(): Promise<KGConstructionMeta[]> {
     const result = await pool.query(
         `SELECT * FROM kg_construction_meta ORDER BY created_at DESC`
@@ -86,9 +82,7 @@ export async function getAllKGConstructionMetaRepo(): Promise<KGConstructionMeta
     return result.rows;
 }
 
-/**
- * Get by ID
- */
+//Get by ID
 export async function getKGConstructionMetaByIdRepo(
     id: number
 ): Promise<KGConstructionMeta | null> {
@@ -99,9 +93,7 @@ export async function getKGConstructionMetaByIdRepo(
     return result.rows[0] || null;
 }
 
-/**
- * Get by user
- */
+//Get KG Construction metadata by cluster ID
 export async function getKGConstructionMetaByClusterRepo(
     clusterId: number
 ): Promise<KGConstructionMeta[]> {
@@ -113,9 +105,7 @@ export async function getKGConstructionMetaByClusterRepo(
     return result.rows;
 }
 
-/**
- * Update status or message
- */
+//Update status or message
 export async function updateKGConstructionMetaStatusRepo(
     id: number,
     status: KGStatus,
@@ -131,9 +121,7 @@ export async function updateKGConstructionMetaStatusRepo(
     return result.rows[0] || null;
 }
 
-/**
- * Delete meta by ID
- */
+//Delete meta by ID
 export async function deleteKGConstructionMetaRepo(id: number): Promise<null> {
     const result = await pool.query(
         `DELETE FROM kg_construction_meta WHERE id = $1`,
