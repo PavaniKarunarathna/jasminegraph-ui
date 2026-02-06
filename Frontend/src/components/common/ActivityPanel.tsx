@@ -14,7 +14,7 @@ limitations under the License.
 "use client";
 
 import React from "react";
-import { Alert, List, Typography, Empty, Button, Badge, Space } from "antd";
+import { Alert, List, Typography, Empty, Button, Badge, Space, Modal } from "antd";
 import { BugOutlined, CloseCircleFilled } from "@ant-design/icons";
 import { useAppSelector, useAppDispatch } from "@/redux/hook";
 import {
@@ -50,11 +50,22 @@ export default function ActivityPanel({ featureName }: ActivityPanelProps) {
   };
 
   const handleClearAll = () => {
-    if (featureName) {
-      dispatch(clear_errors_by_menu_item(featureName));
-    } else {
-      dispatch(clear_all_errors());
-    }
+    Modal.confirm({
+      title: "Confirm Deletion",
+      content: featureName
+        ? `This will permanently delete all activities for "${featureName}" (system activities included). This action is irreversible. Proceed?`
+        : "This will permanently delete ALL activities (including system-level). This action is irreversible. Proceed?",
+      okText: "Delete",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk() {
+        if (featureName) {
+          dispatch(clear_errors_by_menu_item(featureName));
+        } else {
+          dispatch(clear_all_errors());
+        }
+      },
+    });
   };
 
   return (
