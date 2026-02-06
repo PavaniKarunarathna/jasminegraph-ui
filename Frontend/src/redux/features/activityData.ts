@@ -42,6 +42,9 @@ export const activityDataSlice = createSlice({
         time: new Date().toLocaleTimeString(),
       };
       state.errors.unshift(error);
+      if (state.errors.length > 50) {
+        state.errors = state.errors.slice(0, 50);
+      }
     },
     remove_error: (state, { payload }: PayloadAction<string>) => {
       state.errors = state.errors.filter(error => error.id !== payload);
