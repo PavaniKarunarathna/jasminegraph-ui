@@ -49,12 +49,17 @@ const register = async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     console.error('[REGISTER] Error:', err.response?.data || err.message);
-    res.status(HTTP[500]).send('Server error');
+    const errorDetails = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    res.status(HTTP[500]).send(`Server error: ${errorDetails}`);
   }
 };
 
 const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(422).json({ message: 'Email and password are required' });
+  }
 
   try {
     const response = await axios.post(
@@ -73,8 +78,12 @@ const login = async (req: Request, res: Response) => {
     console.log('[LOGIN] Tokens received from Keycloak');
     return res.json({ accessToken: access_token, refreshToken: refresh_token });
   } catch (err: any) {
-    console.error('[LOGIN] Invalid credentials:', err.response?.data || err.message);
-    return res.status(HTTP[401]).send('Invalid credentials');
+    console.error('[LOGIN] Error:', err.response?.data || err.message);
+    if (err.response && err.response.status === 401) {
+      return res.status(HTTP[401]).send('Invalid credentials');
+    }
+    const errorDetails = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    return res.status(HTTP[500]).send(`Server error: ${errorDetails}`);
   }
 };
 
