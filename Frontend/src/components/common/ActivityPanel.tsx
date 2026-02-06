@@ -53,8 +53,8 @@ export default function ActivityPanel({ featureName }: ActivityPanelProps) {
     Modal.confirm({
       title: "Confirm Deletion",
       content: featureName
-        ? `This will permanently delete all activities for "${featureName}" (system activities included). This action is irreversible. Proceed?`
-        : "This will permanently delete ALL activities (including system-level). This action is irreversible. Proceed?",
+        ? `This will permanently delete all messages for "${featureName}". This action is irreversible. Proceed?`
+        : "This will permanently delete all messages. This action is irreversible. Proceed?",
       okText: "Delete",
       okType: "danger",
       cancelText: "Cancel",
