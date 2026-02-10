@@ -1,4 +1,3 @@
-import path from "path";
 
 /**
  Copyright 2024 JasmineGraph Team
@@ -38,6 +37,8 @@ import {
 
 } from "../repository/kg-construction-meta.respository";
 import fs from "fs";
+import path from "path";
+
 import pdfParse from "pdf-parse";
 
 

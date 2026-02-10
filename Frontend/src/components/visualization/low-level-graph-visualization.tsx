@@ -140,32 +140,48 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
             // renderer.on("clickNode", ({node}) => setSelectedNodeId(Number(node)));
 
             // --- HOVER TOOLTIP EVENTS ---
-            renderer.on("enterNode", ({node}) => {
+            renderer.on("enterNode", ({ node }) => {
                 const attrs = graph.getNodeAttributes(node);
-                setHoveredNode({id: node, ...attrs});
+                setHoveredNode({ id: node, ...attrs });
+
                 const neighbors = new Set(graph.neighbors(node));
 
+                // Show only hovered node and its neighbors
                 graph.forEachNode((n) => {
-                    graph.setNodeAttribute(
-                        n,
-                        "highlighted",
-                        n === node || neighbors.has(n)
-                    );
+                    const visible = n === node || neighbors.has(n);
+
+                    graph.setNodeAttribute(n, "hidden", !visible);
+                    graph.setNodeAttribute(n, "highlighted", visible);
+                });
+
+                // Show only edges connected to the hovered node
+                graph.forEachEdge((edge, attr, source, target) => {
+                    const visible =
+                        source === node ||
+                        target === node ||
+                        (neighbors.has(source) && neighbors.has(target));
+
+                    graph.setEdgeAttribute(edge, "hidden", !visible);
+                    graph.setEdgeAttribute(edge, "highlighted", visible);
                 });
             });
 
-            renderer.on("leaveNode", ({node}) => {
-                const neighbors = new Set(graph.neighbors(node));
 
+            renderer.on("leaveNode", () => {
                 graph.forEachNode((n) => {
-                    graph.setNodeAttribute(
-                        n,
-                        "highlighted",
-                        false
-                    );
+                    graph.setNodeAttribute(n, "hidden", false);
+                    graph.setNodeAttribute(n, "highlighted", false);
                 });
+
+                graph.forEachEdge((e) => {
+                    graph.setEdgeAttribute(e, "hidden", false);
+                    graph.setEdgeAttribute(e, "highlighted", false);
+                });
+
                 setHoveredNode(null);
             });
+
+
 
             renderer.on("enterEdge", ({edge}) => {
                 const attrs = graph.getEdgeAttributes(edge);

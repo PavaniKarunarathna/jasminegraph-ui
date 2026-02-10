@@ -28,14 +28,14 @@ const QueryVisualization = () => {
     const { messagePool } = useAppSelector((state) => state.queryData);
     const PARTITION_COLORS = [
 
-        '#0B3C5D', // deep navy
-        '#123E6B', // dark blue
-        '#1F5A8A', // steel blue
-        '#2C73A8', // strong blue
-        '#3A86B8', // classic blue
-        '#4E9CD3', // medium sky blue
-        '#5FA8E6', // bright but visible
-        '#6CB8E6', // lighter (still visible)
+      '#6CB8E6', // lighter (still visible)
+      '#5FA8E6', // bright but visible
+      '#4E9CD3', // medium sky blue
+      '#3A86B8', // classic blue
+      '#2C73A8', // strong blue
+      '#1F5A8A', // steel blue
+      '#123E6B', // dark blue
+      '#0B3C5D', // deep navy
     ];
 
 
@@ -218,8 +218,9 @@ const QueryVisualization = () => {
             <div
                 ref={networkContainerRef}
                 style={{
-                    width: '100%',
-                    height: '450px',
+                    width: "150%",
+                    maxWidth: "1400px",
+                    height: "calc(100vh - 150px)",
                     border: '1px solid lightgray',
                     backgroundColor: '#ffffff',
                 }}

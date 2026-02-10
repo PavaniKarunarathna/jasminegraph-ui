@@ -329,7 +329,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
 
                     if (line.startsWith("UPBYTES")) {
                         const parts = line.split('|');
-                        const updates: {
+                        let updates: {
                             graphId: string;
                             uploaded: number;
                             total: number;
@@ -366,6 +366,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
 
                             updates.push({ graphId, uploaded, total, percentage, bytesPerSecond, triplesPerSecond, startTime, uploadPath, llmRunnerString, inferenceEngine, model, chunkSize, kgConstructionStatus, hdfsIp, hdfsPort});
                         }
+                        updates = updates.reverse();
                         // Send updates only if still connected
                         if (client.readyState === WebSocket.OPEN) {
                             sendToClient(clientId, {
