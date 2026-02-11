@@ -23,6 +23,7 @@ import {
 } from 'antd';
 import { addNewCluster } from '@/services/cluster-service';
 import useAccessToken from '@/hooks/useAccessToken';
+import { useActivity } from "@/hooks/useActivity";
 
 const { Option } = Select;
 
@@ -65,6 +66,7 @@ type props = {
 const ClusterRegistrationForm = ({ onSuccess, form, onCancel }: props) => {
   const [loading, setLoading] = useState<boolean>(false);
   const { getSrvAccessToken } = useAccessToken();
+  const { reportErrorFromException } = useActivity();
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -73,6 +75,11 @@ const ClusterRegistrationForm = ({ onSuccess, form, onCancel }: props) => {
       const response = await addNewCluster(values.name, values.description, values.host, values.port, token);
       if ('errorCode' in response) {
         message.error(response.message);
+        reportErrorFromException(
+          "Clusters",
+          response.message,
+          "Failed to add new cluster."
+        );
       } else {
         message.loading("Connecting New Cluster", 2);
         onSuccess();

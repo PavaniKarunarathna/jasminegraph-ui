@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import { USER_ROLES } from '@/data/user-data';
 import { registerUser } from '@/services/auth-service';
+import { useActivity } from "@/hooks/useActivity";
 
 const { Option } = Select;
 
@@ -62,6 +63,7 @@ type props = {
 
 const UserRegistrationForm = ({onSuccess, form}: props) => {
   const [loading, setLoading] = useState<boolean>(false);
+  const { reportErrorFromException } = useActivity();
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -72,6 +74,11 @@ const UserRegistrationForm = ({onSuccess, form}: props) => {
       form.resetFields();
     }catch(err){
       message.error("Failed to create profile");
+      reportErrorFromException(
+        "User Management",
+        err,
+        "Failed to create profile."
+      );
     }
     setLoading(false);
   };

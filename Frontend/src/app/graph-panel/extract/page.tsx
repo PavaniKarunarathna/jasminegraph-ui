@@ -26,6 +26,7 @@ import useWebSocket, {ReadyState} from "react-use-websocket";
 import axios from "axios";
 import kafkaLOGO from "@/assets/images/kafka-logo.jpg";
 import hadoopLOGO from "@/assets/images/hadoop-logo.jpg";
+import { useActivity } from "@/hooks/useActivity";
 import {
     deleteGraph,
     getKGConstructionMetaData,
@@ -61,6 +62,7 @@ type ISocketResponse = {
 }
 
 export default function GraphUpload() {
+    const { reportError, reportErrorFromException } = useActivity();
     const dispatch = useAppDispatch();
     const uploadBytesGraphs  = useAppSelector((state) => state.queryData.uploadBytes);
 
@@ -103,6 +105,11 @@ export default function GraphUpload() {
     const handleUpload = async () => {
         if (!file) {
             message.error("Please select a file to upload");
+            reportError({
+              menuItem: "Graph Panel",
+              title: "File Selection Required",
+              message: "Please select a file to upload before proceeding with the graph extraction process."
+            });
             return;
         }
 
@@ -115,6 +122,11 @@ export default function GraphUpload() {
             message.success("File uploaded successfully");
         } catch (error) {
             message.error("Failed to upload file");
+            reportErrorFromException(
+                "Graph Panel",
+                error,
+                "Failed to upload graph file to the server."
+            );
         }
 
         setModalOpen(false);
@@ -131,12 +143,14 @@ export default function GraphUpload() {
                     message.success("Graph construction paused");
                     setPausedGraphs((prev) => ({ ...prev, [graphId]: true }));
                 })
-
-
             })
-
-        } catch {
+        } catch (error) {
             message.error("Failed to pause graph construction");
+            reportErrorFromException(
+                "Graph Panel",
+                error,
+                "Unable to pause the graph construction process."
+            );
         }finally {
             setLoading(false);
         }
@@ -150,26 +164,23 @@ export default function GraphUpload() {
                     setLoading(false);
                 })
             })
-
-
-        } catch {
+        } catch (error) {
             message.error("Failed to stop graph construction");
+            reportErrorFromException(
+                "Graph Panel",
+                error,
+                "Unable to stop the graph construction process."
+            );
         }
     };
 
     useEffect(() => {
         const message = lastJsonMessage as ISocketResponse;
         if(!message) return;
-
-
-
-
         if(message?.type === "CONNECTED"){
 
             setClientID(message?.clientId || '');
         } else {
-
-
             dispatch(add_upload_bytes({ ...message }));
             setLoading(false);
         }
