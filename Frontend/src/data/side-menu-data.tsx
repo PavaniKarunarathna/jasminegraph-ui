@@ -19,12 +19,13 @@ import {
   ContainerOutlined,
   ReadOutlined,
   RadarChartOutlined,
-  InfoCircleOutlined, 
+  InfoCircleOutlined,
   BookOutlined,
   SettingOutlined,
   CodeOutlined,
   UsergroupAddOutlined,
-  SlidersOutlined
+  SlidersOutlined,
+  AlignLeftOutlined,
 } from "@ant-design/icons";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import * as Routes from "@/routes/page-routes";
@@ -77,6 +78,14 @@ export const getSideMenuData = (router: AppRouterInstance, role: string) => {
         label: "Performance",
         onClick: () => {
           onMenuClick(Routes.SIDE_MENU_ROUTES.performance);
+        },
+      },
+      {
+        key: Routes.SIDE_MENU_ROUTES.logs,
+        icon: <AlignLeftOutlined />,
+        label: "Logs",
+        onClick: () => {
+          onMenuClick(Routes.SIDE_MENU_ROUTES.logs);
         },
       },
       {
@@ -184,8 +193,14 @@ export const getSideMenuData = (router: AppRouterInstance, role: string) => {
       onClick: () => {
         onMenuClick(Routes.SIDE_MENU_ROUTES.performance);
       },
-      // enabled for non-admins as well (access control should be enforced server-side)
-      disabled: false,
+    },
+    {
+      key: Routes.SIDE_MENU_ROUTES.logs,
+      icon: <AlignLeftOutlined />,
+      label: "Logs",
+      onClick: () => {
+        onMenuClick(Routes.SIDE_MENU_ROUTES.logs);
+      },
     },
     {
       key: Routes.SIDE_MENU_ROUTES.queryExecution,
