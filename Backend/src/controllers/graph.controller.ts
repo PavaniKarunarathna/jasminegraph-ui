@@ -119,8 +119,12 @@ const getGraphList = async (req: Request, res: Response) => {
         setTimeout(() => {
           if (commandOutput) {
             console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
-            res.status(HTTP[200]).send(JSON.parse(commandOutput));
-          } else {
+              try {
+                  res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+              } catch (err) {
+                  return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+              }          } else {
             res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
           }
         }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
@@ -148,7 +152,12 @@ const getClusterProperties = async (req: Request, res: Response) => {
       tSocket.write(PROPERTIES_COMMAND + '\n', 'utf8', () => {
         setTimeout(() => {
           if (commandOutput) {
-            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+              try {
+                res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+              } catch (err) {
+                return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+            }
           } else {
             res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
           }
@@ -183,7 +192,7 @@ const uploadGraph = async (req: Request, res: Response) => {
             tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'utf8', () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        try{
+                        try {
                            let output =  JSON.parse(commandOutput)
                             res.status(HTTP[200]).send(output);
 
@@ -709,8 +718,12 @@ const constructKGHadoop = async (req: Request, res: Response) => {
             tSocket.write(LIST_COMMAND + '\n', 'utf8', () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        res.status(HTTP[200]).send(JSON.parse(commandOutput));
-                    } else {
+                        try {
+                            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }                    } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
                 }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
@@ -780,8 +793,12 @@ const getGraphData = async (req, res) => {
             tSocket.write(GRAPH_DATA_COMMAND + '\n', 'utf8', () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        res.status(HTTP[200]).send({data: JSON.parse(commandOutput)});
-                    } else {
+                        try {
+                            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }                    } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
                 }, TIMEOUT.hundred); // Adjust timeout to wait for the server response if needed
