@@ -51,7 +51,7 @@ export default function SemanticBeamSearchPage() {
       const filteredData: IOption[] = res.data.map((graph: any) => {
         return {
           value: graph.idgraph,
-          label: graph.idgraph+" | "+ graph.name,
+          label: graph.idgraph + " | " + graph.name,
         }
       })
       setGraphs(filteredData);

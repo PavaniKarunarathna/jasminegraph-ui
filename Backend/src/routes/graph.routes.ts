@@ -34,7 +34,7 @@ fs.mkdirSync(CACHE_DIR, { recursive: true });
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, '/app/caches/'); // Specify the folder to save files
+    cb(null, CACHE_DIR); // Specify the folder to save files
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname)); // Save file with a unique name
@@ -42,7 +42,7 @@ const storage = multer.diskStorage({
 });
 const fileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, '/app/caches/'); // Specify the folder to save files
+        cb(null, CACHE_DIR); // Specify the folder to save files
     },
     filename: (req, file, cb) => {
         cb(null, Date.now() + path.extname(file.originalname)); // Save file with a unique name
@@ -66,7 +66,7 @@ const graphRoute = () => {
   router.post('/hadoop/validate-file', validateHDFS)
     router.post('/hadoop/construct-kg', constructKG);
     router.post('/hadoop/stop-construct-kg', stopConstructKG);
-    router.post('/construct-kg-local',upload_file.single("file"),constructKGTXT);
+    router.post('/construct-kg-local', upload_file.single("file"),constructKGTXT);
     router.get('/construct-kg-meta', getKGConstructionMetaByGraphId);
     router.get('/construct-kg-meta/progress', getOnProgressKGConstructionMeta);
     router.put('/construct-kg-meta', updateKGConstructionMetaByClusterId);

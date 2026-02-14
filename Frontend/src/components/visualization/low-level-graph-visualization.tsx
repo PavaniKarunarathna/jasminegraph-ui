@@ -129,16 +129,11 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
         const initGraph = async () => {
             if (typeof window === "undefined" || !containerRef.current) return;
             setRetrievedAt(new Date().toLocaleString());
-            // setLoading(true);
             const graph = new Graph({multi: true, type: "directed"});
             graphRef.current = graph;
 
             const renderer = new Sigma(graph, containerRef.current, {renderLabels: true, renderEdgeLabels: true});
             rendererRef.current = renderer;
-
-            // Click selects node
-            // renderer.on("clickNode", ({node}) => setSelectedNodeId(Number(node)));
-
             // --- HOVER TOOLTIP EVENTS ---
             renderer.on("enterNode", ({ node }) => {
                 const attrs = graph.getNodeAttributes(node);
@@ -200,9 +195,7 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
 
     useEffect(() => {
 
-        if(totalNoOfEdges){
-                console.log( "count", lowLevelGraphData.edge.length);
-                // ;
+        if(totalNoOfEdges || totalNoOfEdges != 0){
                 setProgress(Math.round((lowLevelGraphData.edge.length / totalNoOfEdges) * 100));
                 // count++;
 
@@ -236,7 +229,6 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
                     });
                 }
                 count++;
-                // setProgress(Math.round((count / total) * 100));
             });
 
             // Add edges
@@ -255,7 +247,6 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
                 }
 
                 count++;
-                // setProgress(Math.round((count / total) * 100));
             });
 
             // Degree-based node sizing
@@ -270,7 +261,6 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
             if (isRender) {
                 setLoading(false);
             }
-            // setLoading(false);
         };
 
         updateGraph();

@@ -45,7 +45,6 @@ setupWebSocket(server);
 const CACHE_DIR = path.resolve("/app/caches");
 
 app.use('/public', express.static(CACHE_DIR));
-// app.use('/public', express.static('public'));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());

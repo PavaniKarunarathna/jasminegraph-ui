@@ -32,14 +32,11 @@ export default function PerformancePage() {
           setIsAvailable(false);
         }
       } catch (error) {
-        console.log(error)
         // If fetch fails (likely CORS), fall back to iframe
         console.warn("Fetch failed, possibly due to CORS:", error);
         setIsAvailable(true); // We assume dashboard exists
-        // setIsAvailable(false);
       }
     };
-    // checkDashboardAvailability();
   }, [dashboardUrl]);
 
   if (isAvailable === null) {

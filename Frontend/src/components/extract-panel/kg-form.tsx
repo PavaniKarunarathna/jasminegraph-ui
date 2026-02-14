@@ -1,5 +1,5 @@
 /**
- Copyright 2025 JasmineGraph Team
+ Copyright 2026 JasmineGraph Team
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -106,7 +106,7 @@ const KgForm = ({
                     else if (engine === "vllm") url = `${runner}/v1/models`;
                     if (!url) continue;
 
-                    const res = await axios.get(url, { timeout: 8000 });
+                    const res = await axios.get(url);
 
                     const data = res.data;
                     if (engine === "ollama" && data.models) {
@@ -124,11 +124,11 @@ const KgForm = ({
             message.destroy();
 
             if (modelsFetched.length === 0) {
-                message.warning("⚠️ Could not fetch models. Please verify runner URLs or network.");
+                message.warning("Could not fetch models. Please verify runner URLs or network.");
             } else {
                 setModels(modelsFetched);
 
-                message.success(`✅ Successfully fetched ${modelsFetched.length} models`);
+                message.success(`Successfully fetched ${modelsFetched.length} models`);
                 setCurrentStep(1);
             }
 
@@ -174,7 +174,6 @@ const KgForm = ({
             formData.append('textFileName', finalValues.graphName);
             try {
                 await axios.post('/backend/graph/construct-kg-local', formData, { headers: { 'Content-Type': 'multipart/form-data', 'Cluster-ID': localStorage.getItem('selectedCluster') } });
-                // message.success("File uploaded successfully");
             } catch (error) {
                 message.error("Failed to upload file");
             }

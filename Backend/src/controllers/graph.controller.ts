@@ -26,7 +26,7 @@ import {
 } from './../constants/frontend.server.constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import { getClusterByIdRepo } from '../repository/cluster.repository';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import {HTTP, PDF_EXTENSION, TIMEOUT, TXT_EXTENSION, UTF8_FORMAT} from '../constants/constants';
 import { parseGraphFile } from '../utils/graph';
 import {
     createKGConstructionMetaRepo,
@@ -35,7 +35,7 @@ import {
     deleteKGConstructionMetaRepo,
     KGStatus
 
-} from "../repository/kg-construction-meta.respository";
+} from "../repository/kg-construction-meta.repository";
 import fs from "fs";
 import path from "path";
 
@@ -183,7 +183,13 @@ const uploadGraph = async (req: Request, res: Response) => {
             tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'utf8', () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        res.status(HTTP[200]).send(JSON.parse(commandOutput));
+                        try{
+                           let output =  JSON.parse(commandOutput)
+                            res.status(HTTP[200]).send(output);
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }
                     } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
@@ -213,7 +219,6 @@ export const constructKG = async (req: Request, res: Response) => {
         status,
         graphId
     } = req.body;
-    console.log("req.body", req.body)
 
     try {
         telnetConnection({ host: connection.host, port: connection.port })(() => {
@@ -249,10 +254,8 @@ export const constructKG = async (req: Request, res: Response) => {
 
                     tSocket.write(graphId.toString("utf8").trim() + "\n");
                 } else if (msg.includes("LLM runner hostname:port:")) {
-                    console.log(llmRunnerString);
                     if (llmRunnerString == null) {
                         console.log("ending telnet connection")
-                        // tSocket.end();
                         tSocket.write("exit\n");
                         res.status(HTTP[200]).send({message: "HDFS is reachable from the cluster"});
 
@@ -266,7 +269,6 @@ export const constructKG = async (req: Request, res: Response) => {
                     if (model == null) {
                         console.log("ending telnet connection")
                         tSocket.write("exit\n");
-                        // tSocket.end();
 
                         res.status(HTTP[200]).send({message: "LLM is reachable from the cluster"});
                     } else {
@@ -331,33 +333,37 @@ export const constructKGTXT = async (req: Request, res: Response) => {
     if (!(connection.host && connection.port)) {
         return res.status(404).send(connection);
     }
-    const UPLOAD_DIR = CACHE_DIR;
 
-    console.log("79");
     if (!req.file) {
         return res.status(400).json({error: "No file uploaded"});
     }
+    let customName = path.basename(req.body.textFileName);
+// Strict whitelist validation
+    const validNameRegex = /^[A-Za-z0-9_.-]+$/;
 
-    const customName = req.body.textFileName;
+    if (!customName || !validNameRegex.test(customName) || customName.includes("..")) {
+        return res.status(400).json({ error: "Invalid file name" });
+    }
+   
     if (!customName) {
-        return res.status(400).json({error: "Missing textFileName"});
+        return res.status(400).json({error: "Missing text file name"});
     }
 
     const ext = path.extname(req.file.originalname).toLowerCase();
-    if (ext !== ".pdf" && ext !== ".txt") {
+    if (ext !== PDF_EXTENSION && ext !== TXT_EXTENSION) {
         return res.status(400).json({error: "Only .txt or .pdf allowed"});
     }
 
-    const finalFilename = customName + ext;
-    const finalPath = path.join(UPLOAD_DIR, finalFilename);
+    const finalFileName = customName + ext;
+    const finalPath = path.join(CACHE_DIR, finalFileName);
 
     if (fs.existsSync(finalPath)) {
-        console.log("Duplicate file found:", finalFilename);
+        console.log("Duplicate file found:", finalFileName);
 
         let existingContent = "";
 
         if (ext === ".txt") {
-            existingContent = fs.readFileSync(finalPath, "utf8");
+            existingContent = fs.readFileSync(finalPath, UTF8_FORMAT);
         } else {
             const pdfData = fs.readFileSync(finalPath);
             const parsed = await pdfParse(pdfData);
@@ -367,7 +373,7 @@ export const constructKGTXT = async (req: Request, res: Response) => {
 
         return res.json({
             status: "duplicate",
-            filename: finalFilename,
+            filename: finalFileName,
             extractedText: existingContent
         });
     }
@@ -390,20 +396,15 @@ export const constructKGTXT = async (req: Request, res: Response) => {
         extractedText = parsed.text;
     }
 
-    const textFilePath = path.join(UPLOAD_DIR, customName + ".txt");
+    const textFilePath = path.join(CACHE_DIR, customName + ".txt");
     fs.writeFileSync(textFilePath, extractedText, "utf8");
-
-
-
-
-
     const {
         llmRunnerString,    // "host:port"
         inferenceEngine,    // "ollama" | "vllm"
         model,              // model name
         chunkSize,          // bytes
     } = req.body;
-    const downloadURI =  HOST +":"+PORT + "/public/" + customName + ".txt" ;
+    const downloadURI =  HOST + ":" +PORT + "/public/" + customName + ".txt" ;
     console.log("downloadURI:", downloadURI);
 
     try {
@@ -467,7 +468,7 @@ export const constructKGTXT = async (req: Request, res: Response) => {
             tSocket.write(CONSTRUCT_KG_COMMAND_LOCAL + "\n");
         });
     } catch (err) {
-        console.error("❌ constructKGTXT failed:", err);
+        console.error("❌ Knowledge graph construction failed: ", err);
         return res.status(500).send({
             code: ErrorCode.ServerError,
             message: ErrorMsg.ServerError,

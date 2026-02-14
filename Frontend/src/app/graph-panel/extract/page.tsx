@@ -269,7 +269,7 @@ export default function GraphUpload() {
                 </div>}
 
             {!showUploadSection && uploadBytesGraphs && uploadBytesGraphs.updates.length > 0 &&
-                uploadBytesGraphs.updates.map((upload: IKnowledgeGraph, index) => upload.percentage !== 100 && (
+                uploadBytesGraphs.updates.map((upload: IKnowledgeGraph, index) => upload.percentage <= 100 && (
                     <Card
                         key={index}
                         hoverable

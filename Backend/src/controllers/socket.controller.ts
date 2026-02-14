@@ -19,7 +19,7 @@ import { HTTP, TIMEOUT } from '../constants/constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import {
     CYPHER_COMMAND,
-    INDEGREE_COMMAND,
+    INDEGREE_COMMAND, NO_OF_FIELDS_IN_UPBYTES_CMD,
     OUTDEGREE_COMMAND,
     SEMANTIC_BEAM_SEARCH_COMMAND
 } from '../constants/frontend.server.constants';
@@ -347,7 +347,14 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
                             hdfsPort:string;
 
                         }[] = [];
-                        for (let i = 1; i < parts.length; i += 14) {
+                        for (let i = 1; i < parts.length; i += NO_OF_FIELDS_IN_UPBYTES_CMD) {
+                            const slice = parts.slice(i, i + NO_OF_FIELDS_IN_UPBYTES_CMD).map((p) => (p ?? '').trim());
+
+                            // Validate we have the expected number of fields for one UPBYTES record
+                            if (slice.length < NO_OF_FIELDS_IN_UPBYTES_CMD) {
+                                console.warn(`Malformed UPBYTES message: expected ${NO_OF_FIELDS_IN_UPBYTES_CMD} fields, got ${slice.length}`, parts);
+                                break;
+                            }
                             const graphId = parts[i];
                             const uploaded = parseFloat(parts[i + 1] || "0");
                             const total = parseFloat(parts[i + 2] || "0");

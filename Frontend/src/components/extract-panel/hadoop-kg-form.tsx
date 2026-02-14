@@ -105,27 +105,13 @@ const HadoopKgForm = ({
                 hdfsPort,
                 hdfsFilePath,
                 null,
-               null,
                 null,
-               null,
                 null,
-               null
+                null,
+                null,
+                null
             );
-
-            // const response = await authApi({
-            //     method: "post",
-            //     url: `/backend/graph/hadoop/validate-file`,
-            //     headers: {
-            //         "Cluster-ID": localStorage.getItem("selectedCluster"),
-            //     },
-            //     data: {
-            //         ip: hdfsIp,
-            //         port: hdfsPort,
-            //         filePath: hdfsFilePath
-            //     },
-            // });
             message.destroy();
-            console.log(response);
             console.log(response["status"]);
 
             if (response["status"] == 200) {
@@ -176,9 +162,6 @@ const HadoopKgForm = ({
             );
 
             message.destroy();
-            console.log(response);
-            console.log(response["status"]);
-
             if (response["status"] == 200) {
                 setCurrentStep(1);
             } else {

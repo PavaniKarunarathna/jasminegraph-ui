@@ -26,3 +26,7 @@ export const TIMEOUT = {
   default: 5000,
   retryDelayMs: 3000,
 }
+
+export const TXT_EXTENSION = ".txt"
+export const PDF_EXTENSION = ".pdf"
+export const UTF8_FORMAT = "utf8"
