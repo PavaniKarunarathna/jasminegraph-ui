@@ -48,18 +48,8 @@ export default function Clusters() {
 
   const getAllCluster = useCallback(async () => {
     try {
-      let token = getSrvAccessToken() || null;
-
-      if (token && isTokenExpired(token)) {
-        try {
-          token = await refreshAccessToken();
-          console.log("[CLUSTERS] Token refreshed successfully");
-        } catch (refreshError) {
-          console.log("[CLUSTERS] Token refresh failed, redirecting to login");
-          router.replace("/auth");
-          return;
-        }
-      }
+      const token = getSrvAccessToken() || null;
+      // rely on axios interceptor to refresh/ retry on 401; avoid duplicate refresh logic
       const clusterRes = await getAllClusters(token);
       if (!clusterRes.data) return;
 

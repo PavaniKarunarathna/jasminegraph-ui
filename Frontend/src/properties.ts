@@ -5,3 +5,5 @@ export const GRAFANA_DASHBOARD = {
   slug: "jasminegraph-performance",
   baseUrl: "http://localhost:3001"
 };
+
+export const JWT_SEGMENT_COUNT = 3;

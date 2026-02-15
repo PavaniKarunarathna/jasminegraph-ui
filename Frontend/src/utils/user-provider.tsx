@@ -44,10 +44,14 @@ const UserProvider = ({ children }: { children: React.ReactNode }) => {
         router.replace("/auth");
         return;
       }
-      if (isTokenExpired(token!)) {
+      if (isTokenExpired(token)) {
         try {
           token = await refreshAccessToken();
           console.log("[USER_PROVIDER] Token refreshed successfully");
+          
+          if (!token) {
+            throw new Error("Token refresh returned null");
+          }
         } catch (refreshError) {
           console.log(
             "[USER_PROVIDER] Token refresh failed, redirecting to login"
@@ -56,7 +60,7 @@ const UserProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
       }
-      const res = await getUserDataByToken(token!).then((res) => res.data);
+      const res = await getUserDataByToken(token).then((res) => res.data);
       const userData: IUserAccessData = {
         email: res.data.email,
         firstName: res.data.firstName,

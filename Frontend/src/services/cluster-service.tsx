@@ -55,12 +55,15 @@ export async function addNewCluster(name: string, description: string, host: str
 }
 
 export async function getAllClusters(token: string | null) {
+  if (!token) {
+    return Promise.reject(new Error("Authentication token is required"));
+  }
   try {
     const result = await authApi({
       method: "get",
       url: `/backend/clusters/myClusters`,
       headers: {
-      Authorization: token ? `Bearer ${token}` : "",
+      Authorization: `Bearer ${token}`,
     },
     }).then((res) => res.data);
     return {
@@ -89,12 +92,15 @@ export async function getCluster(clusterID: string, token: string) {
 }
 
 export async function getClustersStatusByIds(token: string | null, ids: number[]) {
+  if (!token) {
+    return Promise.reject(new Error("Authentication token is required"));
+  }
   try {
     const result = await authApi({
       method: "post",
       url: `/backend/clusters/status`,
       headers: {
-        Authorization: token ? `Bearer ${token}` : "",
+        Authorization: `Bearer ${token}`,
       },
       data: { ids },
     }).then(res => res.data);

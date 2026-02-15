@@ -11,7 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
+"use client";
+
 import axios from "axios";
+import { JWT_SEGMENT_COUNT } from "@/properties";
 
 export const ACCESS_TOKEN = "auth.srv.token";
 export const REFRESH_TOKEN = "auth.srv.refresh.token";
@@ -42,19 +45,18 @@ const useAccessToken = () => {
   };
 
   const isTokenExpired = (token: string | null) => {
-    if (!token || token.split('.').length !== 3) 
+    if (!token || token.split('.').length !== JWT_SEGMENT_COUNT) 
       return true;
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
+      const parts = token.split(".");
+      // Validate base64 format before decoding
+      if (!/^[A-Za-z0-9_-]*$/.test(parts[1])) {
+        throw new Error("Invalid base64 in payload");
+      }
+      const payload = JSON.parse(atob(parts[1]));
       const currentTime = Date.now() / 1000;
       const isExpired = payload.exp < currentTime;
-      console.log(
-        `[TOKEN] Checking if token expired: ${isExpired}, expires at: ${new Date(
-          payload.exp * 1000
-        ).toLocaleTimeString()}, current time: ${new Date(
-          currentTime * 1000
-        ).toLocaleTimeString()}`
-      );
+      console.log(`[TOKEN] Token expired: ${isExpired}`);
       return isExpired;
     } catch (error) {
       console.error("[TOKEN] Error parsing token:", error);
@@ -71,7 +73,7 @@ const useAccessToken = () => {
       }
       const response = await axios.post("/backend/auth/refresh-token", {
         token: refreshToken,
-      });
+      }, { _isRefreshRequest: true } as any);
       const { accessToken, refreshToken: newRefreshToken } = response.data;
       setSrvAccessToken(accessToken);
       setSrvRefreshToken(newRefreshToken);

@@ -13,6 +13,7 @@ limitations under the License.
 
 'use client';
 import axios from "axios";
+import type { AxiosError } from "axios";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "@/hooks/useAccessToken";
 import { SELECTED_CLUSTER } from "@/hooks/useCluster";
 
@@ -68,43 +69,71 @@ api.interceptors.request.use(
     }
 );
 
+// prevent concurrent refresh calls by sharing a single refresh promise
+let refreshTokenPromise: Promise<string | null> | null = null;
+
 api.interceptors.response.use(
-    (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  (response) => response,
+  async (error: AxiosError & { config?: any }) => {
+    const originalRequest = error.config as any;
+
+    // Skip interceptor for refresh token requests
+    if (originalRequest._isRefreshRequest) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem(REFRESH_TOKEN);
+        const refreshToken = typeof window !== "undefined" ? localStorage.getItem(REFRESH_TOKEN) : null;
         if (!refreshToken) {
-          console.log(
-            "[AXIOS] No refresh token available, redirecting to login"
-          );
-          localStorage.removeItem(ACCESS_TOKEN);
-          localStorage.removeItem(REFRESH_TOKEN);
-          window.location.href = "/auth";
+          console.log("[AXIOS] No refresh token available, redirecting to login");
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(ACCESS_TOKEN);
+            localStorage.removeItem(REFRESH_TOKEN);
+            window.location.href = "/auth";
+          }
           return Promise.reject(error);
         }
 
-        const response = await axios.post("/backend/auth/refresh-token", {
-          token: refreshToken,
-        });
+        if (!refreshTokenPromise) {
+          refreshTokenPromise = axios
+            .post("/backend/auth/refresh-token", { token: refreshToken })
+            .then((res) => {
+              const { accessToken, refreshToken: newRefreshToken } = res.data;
+              if (typeof window !== "undefined") {
+                localStorage.setItem(ACCESS_TOKEN, accessToken);
+                localStorage.setItem(REFRESH_TOKEN, newRefreshToken);
+              }
+              return accessToken as string;
+            })
+            .catch((e) => {
+              if (typeof window !== "undefined") {
+                localStorage.removeItem(ACCESS_TOKEN);
+                localStorage.removeItem(REFRESH_TOKEN);
+              }
+              throw e;
+            })
+            .finally(() => {
+              // allow future refresh attempts after this completes
+              refreshTokenPromise = null;
+            });
+        }
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        const newAccessToken = await refreshTokenPromise;
+        if (!newAccessToken) return Promise.reject(error);
 
-        localStorage.setItem(ACCESS_TOKEN, accessToken);
-        localStorage.setItem(REFRESH_TOKEN, newRefreshToken);
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
-        originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
-
+        // retry original request using raw axios to avoid interceptor recursion
         return axios(originalRequest);
       } catch (refreshError) {
         console.error("[AXIOS] Token refresh failed:", refreshError);
-        localStorage.removeItem(ACCESS_TOKEN);
-        localStorage.removeItem(REFRESH_TOKEN);
-        window.location.href = "/auth";
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth";
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -116,9 +145,7 @@ api.interceptors.response.use(
           console.error("[AXIOS] Bad Request:", data);
           break;
         case 500:
-          console.error(
-            "[AXIOS] Internal Server Error. Please try again later."
-          );
+          console.error("[AXIOS] Internal Server Error. Please try again later.");
           break;
         default:
           console.error("[AXIOS] An error occurred:", status, data);
