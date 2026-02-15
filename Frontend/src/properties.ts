@@ -11,3 +11,5 @@ export const GRAFANA_DASHBOARD = {
 export const LOKI_EXPLORE = {
   url: `${GRAFANA_BASE_URL}/a/grafana-lokiexplore-app/explore`,
 };
+
+export const JWT_SEGMENT_COUNT = 3;

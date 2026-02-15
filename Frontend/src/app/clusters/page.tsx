@@ -46,12 +46,13 @@ export default function Clusters() {
   const { selectedCluster } = useAppSelector((state) => state.clusterData);
 
   const [openModal, setOpenModal] = useState<boolean>(false);
-  const { getSrvAccessToken } = useAccessToken();
+  const { getSrvAccessToken, refreshAccessToken, isTokenExpired } = useAccessToken();
   const [form] = Form.useForm();
 
   const getAllCluster = useCallback(async () => {
     try {
-      const token = getSrvAccessToken() || "";
+      const token = getSrvAccessToken() || null;
+      // rely on axios interceptor to refresh/ retry on 401; avoid duplicate refresh logic
       const clusterRes = await getAllClusters(token);
       if (!clusterRes.data) return;
 
