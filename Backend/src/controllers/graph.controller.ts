@@ -264,6 +264,8 @@ export const constructKG = async (req: Request, res: Response) => {
                     tSocket.write(graphId.toString("utf8").trim() + "\n");
                 } else if (msg.includes("LLM runner hostname:port:")) {
                     if (llmRunnerString == null) {
+                        // If llmRunnerString is null, the UI has sent this request to validate the reachability of
+                        // HDFS file system from the jasminegraph cluster, hence we return 200
                         console.log("ending telnet connection")
                         tSocket.write("exit\n");
                         res.status(HTTP[200]).send({message: "HDFS is reachable from the cluster"});
@@ -276,6 +278,8 @@ export const constructKG = async (req: Request, res: Response) => {
                     tSocket.write(inferenceEngine.toString("utf8").trim() + "\n");
                 } else if (msg.includes("What is the LLM you want to use?")) {
                     if (model == null) {
+                        // If model is null, the UI has sent this request to validate the reachability of the LLM
+                        // inference engine from the jasminegraph cluster, hence we return 200
                         console.log("ending telnet connection")
                         tSocket.write("exit\n");
 
@@ -390,8 +394,27 @@ export const constructKGTXT = async (req: Request, res: Response) => {
     // ----------------------------------------------------
     // STEP B: MOVE FILE FROM TMP → UPLOADS
     // ----------------------------------------------------
-    await fs.promises.copyFile(req.file.path, finalPath);
-    await fs.promises.unlink(req.file.path);
+    // STEP B: MOVE FILE FROM TMP → UPLOADS
+    try {
+        // Ensure the tmp file exists
+        const tmpStats = await fs.promises.lstat(req.file.path);
+
+        // Optional: prevent symlinks (lstat vs stat)
+        if (tmpStats.isSymbolicLink()) {
+            return res.status(400).json({ error: "Invalid file upload" });
+        }
+
+        // Atomic move
+        await fs.promises.rename(req.file.path, finalPath);
+
+        // Optional: set strict permissions on uploaded file
+        await fs.promises.chmod(finalPath, 0o600);
+    } catch (err) {
+        console.error("File move failed:", err);
+        // Attempt cleanup if tmp still exists
+        try { await fs.promises.unlink(req.file.path); } catch {}
+        return res.status(500).json({ error: "Failed to save uploaded file" });
+    }
     // ----------------------------------------------------
     // STEP C: TEXT EXTRACTION
     // ----------------------------------------------------
