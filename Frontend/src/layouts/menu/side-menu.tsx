@@ -25,21 +25,23 @@ const SideMenu = () => {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const pathname = usePathname();
-  const { userData } = useAppSelector(state => state.authData);
+  const { userData } = useAppSelector((state) => state.authData);
   const sideMenuData = getSideMenuData(useRouter(), userData.role);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    const path = pathname.split("/")[1];
-    // Auto-collapse the menu when viewing the performance page to avoid two sidebars
-    if (path === "performance") setCollapsed(true);
+    const path = (pathname || "").split("/")[1] || "";
+    // Auto-collapse the menu when viewing the performance or logs page to avoid two sidebars
+    if (path === "performance" || path === "logs") setCollapsed(true);
     else setCollapsed(false);
   }, [pathname]);
-  
+
   const findActiveMenu = () => {
-    const path = pathname.split("/")[1];
-    return sideMenuData.filter((item) => item?.key === `/${path}`).map((item) => item.key)[0];
-  }
+    const path = (pathname || "").split("/")[1] || "";
+    return sideMenuData
+      .filter((item) => item?.key === `/${path}`)
+      .map((item) => item.key)[0];
+  };
 
   return (
     <Sider

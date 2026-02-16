@@ -34,10 +34,12 @@ import HadoopUploadModal from "@/components/graph-panel/hadoop-upload-modal";
 import { RcFile } from "antd/es/upload/interface";
 import { toast } from "react-toastify";
 import axios from "axios";
+import { useActivity } from "@/hooks/useActivity";
 
 const { Dragger } = Upload;
 
 export default function GraphUpload() {
+  const { reportErrorFromException } = useActivity();
   const [kafkaModalOpen, setKafkaModelOpen] = useState<boolean>(false);
   const [hadoopModalOpen, setHadoopModelOpen] = useState<boolean>(false);
   const [file, setFile] = useState<File>();
@@ -83,6 +85,11 @@ export default function GraphUpload() {
       })
       .catch(error => {
         message.error("Failed to upload file");
+        reportErrorFromException(
+          "Graph Panel",
+          error,
+          "Failed to upload graph file to the server."
+        );
       });
 
       setModalOpen(false);

@@ -13,62 +13,49 @@ limitations under the License.
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import PageWrapper from "@/layouts/page-wrapper";
 import { GRAFANA_DASHBOARD } from "@/properties";
 import styles from "./performance.module.css";
+import { useIframeAvailability } from "@/hooks/useIframeAvailability";
 
 export default function PerformancePage() {
   const dashboardUrl = `${GRAFANA_DASHBOARD.baseUrl}/d/${GRAFANA_DASHBOARD.uid}/${GRAFANA_DASHBOARD.slug}`;
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkDashboardAvailability = async () => {
-      try {
-        const response = await fetch(dashboardUrl, { method: "HEAD" });
-        if (response.ok) {
-          setIsAvailable(true);
-        } else {
-          setIsAvailable(false);
-        }
-      } catch (error) {
-        setIsAvailable(false);
-      }
-    };
-    checkDashboardAvailability();
-  }, [dashboardUrl]);
-
-  if (isAvailable === null) {
-    return (
-      <PageWrapper>
-        <div className={styles.container}>
-          <p>Checking performance dashboard&apos;s availability</p>
-        </div>
-      </PageWrapper>
-    );
-  }
-
-  if (isAvailable === false) {
-    return (
-      <PageWrapper>
-        <div className={styles.container}>
-          <p>
-            Performance dashboard is currently unavailable. Please check if the
-            Grafana service is running.
-          </p>
-        </div>
-      </PageWrapper>
-    );
-  }
+  const [iframeError, handleIframeError, handleIframeLoad] = useIframeAvailability();
 
   return (
     <PageWrapper>
       <div className={styles.iframeContainer}>
-        <iframe
-          src={dashboardUrl}
-          className={styles.iframe}
-          title="Grafana Dashboard"
-        />
+        {iframeError === "none" ? (
+          <iframe
+            src={dashboardUrl}
+            className={styles.iframe}
+            title="Grafana Dashboard"
+            style={{ border: "none", width: "100%", height: "100%" }}
+            onError={handleIframeError}
+            onLoad={handleIframeLoad}
+          />
+        ) : iframeError === "service" ? (
+          <div className={styles.container}>
+            <p>
+              Performance dashboard is currently unavailable. Please check if the Grafana service is running.
+            </p>
+          </div>
+        ) : (
+          <div className={styles.container}>
+            <div>
+              Unable to display performance dashboard in this page. This may be due to browser security settings or the service blocking embedding.
+            </div>
+            <a
+              href={dashboardUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.openInNewTabBtn}
+            >
+              Open Performance Dashboard in New Tab
+            </a>
+          </div>
+        )}
       </div>
     </PageWrapper>
   );
