@@ -23,7 +23,7 @@ import { getGraphList } from "@/services/graph-service";
 import QueryVisualization from "@/components/visualization/query-visualization";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { IOption } from "@/types/options-types";
-
+import { useActivity } from "@/hooks/useActivity";
 type TabItem = Required<TabsProps>['items'][number];
 
 const { TextArea } = Input;
@@ -32,6 +32,7 @@ const WS_URL = "ws://localhost:8080";
 
 export default function Query() {
   const dispatch = useAppDispatch();
+  const { reportErrorFromException } = useActivity();
   const [loading, setLoading] = useState<boolean>(false);
   const [query, setQuery] = useState<string>('');
   const { sendJsonMessage, lastJsonMessage, readyState, getWebSocket } = useWebSocket(WS_URL, { shouldReconnect: (closeEvent) => true });  
@@ -62,6 +63,11 @@ export default function Query() {
         setLoading(false);
 
         message.error("Failed to fetch graphs: " + err);
+        reportErrorFromException(
+          "Query Interface",
+          err,
+          "Failed to fetch the list of graphs."
+        );
     }
   }
 

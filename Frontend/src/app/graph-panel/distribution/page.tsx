@@ -27,8 +27,9 @@ import dynamic from "next/dynamic";
 const TwoLevelGraphVisualization = dynamic(
     () => import("@/components/visualization/two-level-graph-visualization"),
     { ssr: false } // Important: disables server-side rendering
-);import {LoadingOutlined} from "@ant-design/icons";
-
+);
+import {LoadingOutlined} from "@ant-design/icons";
+import { useActivity } from "@/hooks/useActivity";
 
 const WS_URL = "ws://localhost:8080";
 
@@ -39,6 +40,7 @@ type ISocketResponse = {
 
 export default function GraphDistribution() {
   const dispatch = useAppDispatch();
+  const { reportErrorFromException } = useActivity();
   const [loading, setLoading] = useState<boolean>(false);
   const [graphs, setGraphs] = useState<IGraphDetails[]>([]);
   const [graphOptions, setGraphOptions] = useState<IOption[]>([]);
@@ -73,6 +75,11 @@ export default function GraphDistribution() {
     }
     }catch(err){
       message.error("Failed to fetch graphs: " + err);
+      reportErrorFromException(
+        "Graph Panel",
+        err,
+        "Failed to retrieve graph list from the server."
+      );
     }finally {
         setLoading(false);
     }

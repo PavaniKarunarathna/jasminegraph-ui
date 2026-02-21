@@ -17,6 +17,7 @@ export const SIDE_MENU_ROUTES = {
   graphPanel: "/graph-panel",
   queryInterface: "/query-interface",
   performance: "/performance",
+  logs: "/logs",
   queryExecution: "/query-execution",
   querySubmission: "/query-submission",
   notebook: "/notebook",
