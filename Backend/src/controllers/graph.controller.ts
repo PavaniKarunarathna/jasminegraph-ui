@@ -317,7 +317,6 @@ export const constructKG = async (req: Request, res: Response) => {
 
                     console.log("KG extraction started");
                     res.status(HTTP[200]).send({message: "Knowledge Graph construction Started"});
-                    // tSocket.end();
                 }
                 else if(msg.includes("HDFS file System Not reachable.")) {
                     res.status(HTTP[400]).send({message: msg});
