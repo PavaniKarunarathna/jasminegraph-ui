@@ -111,11 +111,11 @@ const getGraphList = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString('UTF8_FORMAT');
             });
 
       // Write the command to the Telnet server
-      tSocket.write(LIST_COMMAND + '\n', 'utf8', () => {
+      tSocket.write(LIST_COMMAND + '\n', 'UTF8_FORMAT', () => {
         setTimeout(() => {
           if (commandOutput) {
             console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
@@ -145,11 +145,11 @@ const getClusterProperties = async (req: Request, res: Response) => {
       let commandOutput = '';
 
       tSocket.on('data', (buffer) => {
-        commandOutput += buffer.toString('utf8');
+        commandOutput += buffer.toString('UTF8_FORMAT');
       });
 
       // Write the command to the Telnet server
-      tSocket.write(PROPERTIES_COMMAND + '\n', 'utf8', () => {
+      tSocket.write(PROPERTIES_COMMAND + '\n', 'UTF8_FORMAT', () => {
         setTimeout(() => {
           if (commandOutput) {
               try {
@@ -185,11 +185,11 @@ const uploadGraph = async (req: Request, res: Response) => {
             let commandOutput = "";
 
             tSocket.on("data", (buffer) => {
-                commandOutput += buffer.toString("utf8");
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
 
-            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'utf8', () => {
+            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'UTF8_FORMAT', () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         try {
@@ -234,7 +234,7 @@ export const constructKG = async (req: Request, res: Response) => {
             let commandOutput = "";
 
             tSocket.on("data", async (buffer) => {
-                const msg = buffer.toString("utf8").trim();
+                const msg = buffer.toString(UTF8_FORMAT).trim();
                 console.log("Master:", msg);
                 commandOutput += msg + "\n";
 
@@ -245,12 +245,12 @@ export const constructKG = async (req: Request, res: Response) => {
 
                 } else if (msg.includes("HDFS Server IP:")) {
                     console.log("IP:", hdfsIp);
-                    tSocket.write(hdfsIp.toString("utf8").trim() + "\n");
+                    tSocket.write(hdfsIp.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("HDFS Server Port:")) {
-                    console.log("port:", hdfsPort.toString().toString("utf8").trim() + "\n");
-                    tSocket.write(hdfsPort.toString().toString("utf8").trim() + "\n");
+                    console.log("port:", hdfsPort.toString().toString(UTF8_FORMAT).trim() + "\n");
+                    tSocket.write(hdfsPort.toString().toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("HDFS file path:")) {
-                    tSocket.write(hdfsFilePath.toString("utf8").trim() + "\n");
+                    tSocket.write(hdfsFilePath.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("There exists a graph with the file path")) {
                     if (status === "paused") {
                         tSocket.write("y\n"); // or "n" depending on user choice
@@ -261,7 +261,7 @@ export const constructKG = async (req: Request, res: Response) => {
                     }
                 } else if (msg.includes("Graph Id to resume?")) {
 
-                    tSocket.write(graphId.toString("utf8").trim() + "\n");
+                    tSocket.write(graphId.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("LLM runner hostname:port:")) {
                     if (llmRunnerString == null) {
                         // If llmRunnerString is null, the UI has sent this request to validate the reachability of
@@ -271,11 +271,11 @@ export const constructKG = async (req: Request, res: Response) => {
                         res.status(HTTP[200]).send({message: "HDFS is reachable from the cluster"});
 
                     } else {
-                        tSocket.write(llmRunnerString.toString("utf8").trim() + "\n");
+                        tSocket.write(llmRunnerString.toString(UTF8_FORMAT).trim() + "\n");
 
                     }
                 } else if (msg.includes("LLM inference engine?")) {
-                    tSocket.write(inferenceEngine.toString("utf8").trim() + "\n");
+                    tSocket.write(inferenceEngine.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("What is the LLM you want to use?")) {
                     if (model == null) {
                         // If model is null, the UI has sent this request to validate the reachability of the LLM
@@ -285,11 +285,11 @@ export const constructKG = async (req: Request, res: Response) => {
 
                         res.status(HTTP[200]).send({message: "LLM is reachable from the cluster"});
                     } else {
-                        tSocket.write(model.toString("utf8").trim() + "\n");
+                        tSocket.write(model.toString(UTF8_FORMAT).trim() + "\n");
 
                     }
                 } else if (msg.includes("chunk size")) {
-                    tSocket.write(chunkSize.toString().toString("utf8").trim() + "\n");
+                    tSocket.write(chunkSize.toString().toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("Graph Id")) {
                     const graphId = msg.split(":")[1].trim()
                     tSocket.write("exit\n");
@@ -421,7 +421,7 @@ export const constructKGTXT = async (req: Request, res: Response) => {
     let extractedText = "";
 
     if (ext === ".txt") {
-        extractedText = fs.readFileSync(finalPath, "utf8");
+        extractedText = fs.readFileSync(finalPath, UTF8_FORMAT);
     } else {
         const pdfBuffer = fs.readFileSync(finalPath);
         const parsed = await pdfParse(pdfBuffer);
@@ -429,7 +429,7 @@ export const constructKGTXT = async (req: Request, res: Response) => {
     }
 
     const textFilePath = path.join(CACHE_DIR, customName + ".txt");
-    fs.writeFileSync(textFilePath, extractedText, "utf8");
+    fs.writeFileSync(textFilePath, extractedText, UTF8_FORMAT);
     const {
         llmRunnerString,    // "host:port"
         inferenceEngine,    // "ollama" | "vllm"
@@ -444,7 +444,7 @@ export const constructKGTXT = async (req: Request, res: Response) => {
             let completed = false;
 
             tSocket.on("data", async (buffer) => {
-                const msg = buffer.toString("utf8").trim();
+                const msg = buffer.toString(UTF8_FORMAT).trim();
                 console.log("Master:", msg);
 
                 /* 1. Local file path */
@@ -523,7 +523,7 @@ export const stopConstructKG = async (req: Request, res: Response) => {
             let commandOutput = "";
             req.setTimeout(0);
             tSocket.on("data", async (buffer) => {
-                const msg = buffer.toString("utf8").trim();
+                const msg = buffer.toString(UTF8_FORMAT).trim();
                 commandOutput += msg + "\n";
 
                 if (msg.includes("done")) {
@@ -653,11 +653,11 @@ const removeGraph = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString('UTF8_FORMAT');
             });
 
             // Write the command to the Telnet server
-            tSocket.write(GRAPH_REMOVE_COMMAND + '|' + req.params.id + '\n', 'utf8', () => {
+            tSocket.write(GRAPH_REMOVE_COMMAND + '|' + req.params.id + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         return res.status(HTTP[200]).send(commandOutput);
@@ -734,11 +734,11 @@ const constructKGHadoop = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(LIST_COMMAND + '\n', 'utf8', () => {
+            tSocket.write(LIST_COMMAND + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         try {
@@ -768,11 +768,11 @@ const triangleCount = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(TRIANGLE_COUNT_COMMAND + '|' + graph_id + '|' + priority + '\n', 'utf8', () => {
+            tSocket.write(TRIANGLE_COUNT_COMMAND + '|' + graph_id + '|' + priority + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         res.status(HTTP[200]).send(commandOutput);
@@ -809,11 +809,11 @@ const getGraphData = async (req, res) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(GRAPH_DATA_COMMAND + '\n', 'utf8', () => {
+            tSocket.write(GRAPH_DATA_COMMAND + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         try {

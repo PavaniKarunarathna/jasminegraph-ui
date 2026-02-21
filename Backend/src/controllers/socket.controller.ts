@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import readline from 'readline';
 import WebSocket from 'ws';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import { HTTP, TIMEOUT, UTF8_FORMAT } from '../constants/constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import {
     CYPHER_COMMAND,
@@ -186,7 +186,7 @@ const streamQueryResult = async (clientId: string, clusterId:string, graphId:str
       producer();
 
       tSocket.on('data', (buffer) => {
-        sharedBuffer.push(buffer.toString('utf8'))
+        sharedBuffer.push(buffer.toString(UTF8_FORMAT))
       });
 
       tSocket.on('end', () => {
@@ -194,7 +194,7 @@ const streamQueryResult = async (clientId: string, clusterId:string, graphId:str
       });
 
       // Write the command to the Telnet server
-      tSocket.write(CYPHER_COMMAND + '|' + graphId + '|' + query + '\n', 'utf8');
+      tSocket.write(CYPHER_COMMAND + '|' + graphId + '|' + query + '\n', UTF8_FORMAT);
     });
   } catch (err) {
     return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -270,7 +270,7 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
             producer();
 
             tSocket.on('data', (buffer) => {
-                sharedBuffer.push(buffer.toString('utf8'))
+                sharedBuffer.push(buffer.toString(UTF8_FORMAT))
             });
 
             tSocket.on('end', () => {
@@ -278,7 +278,7 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
             });
 
             // Write the command to the Telnet server
-            tSocket.write(SEMANTIC_BEAM_SEARCH_COMMAND + '|' + graphId + '|' + query + '\n', 'utf8');
+            tSocket.write(SEMANTIC_BEAM_SEARCH_COMMAND + '|' + graphId + '|' + query + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -395,7 +395,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
             producer();
 
             tSocket.on('data', (buffer) => {
-                sharedBuffer.push(buffer.toString('utf8'));
+                sharedBuffer.push(buffer.toString(UTF8_FORMAT));
             });
 
             tSocket.on('end', () => {
@@ -419,7 +419,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
 
             // Build subscription command
             const command = ['UPBYTES', ...graphIds].join('|');
-            tSocket.write(command + '\n', 'utf8');
+            tSocket.write(command + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         console.error({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -449,7 +449,7 @@ const stopStream = async (clientId: string, clusterId: string) => {
 
             // Build subscription command
             const command = 'STOP'
-            tSocket.write(command + '\n', 'utf8');
+            tSocket.write(command + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         console.error({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -526,7 +526,7 @@ const getDegreeData = async (clientId: string, clusterId:string, graphId:string,
       producer();
 
       tSocket.on('data', (buffer) => {
-        sharedBuffer.push(buffer.toString('utf8'))
+        sharedBuffer.push(buffer.toString(UTF8_FORMAT))
       });
 
       tSocket.on('end', () => {
@@ -534,7 +534,7 @@ const getDegreeData = async (clientId: string, clusterId:string, graphId:string,
       });
 
       // Write the command to the Telnet server
-      tSocket.write(COMMAND + '|' + graphId + '\n', 'utf8');
+      tSocket.write(COMMAND + '|' + graphId + '\n', UTF8_FORMAT);
     });
   } catch (err) {
     return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });

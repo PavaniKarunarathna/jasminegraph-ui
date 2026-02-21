@@ -68,7 +68,6 @@ export const queryDataSlice = createSlice({
     },
       add_semantic_result: (state, {payload}: {payload: any}) => {
           const keys = Object.keys(payload);
-          console.log(payload, keys)
           keys.forEach((key) => {
             if (key != "hop") {
 
