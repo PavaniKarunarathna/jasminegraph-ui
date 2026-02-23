@@ -19,6 +19,7 @@ import type { MenuProps } from "antd";
 import { GraphPanelMenu } from "@/data/menu-data";
 import * as Routes from "@/routes/page-routes";
 import { useRouter } from "next/navigation";
+import ActivityPanel from "@/components/common/ActivityPanel";
 
 const { Content } = Layout;
 export default function GraphPanelLayout({
@@ -54,7 +55,8 @@ export default function GraphPanelLayout({
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
-            overflow: "auto"
+            position: "relative",
+            overflow: "hidden",
           }}
         >
           <Menu
@@ -64,6 +66,7 @@ export default function GraphPanelLayout({
             items={GraphPanelMenu}
           />
           {children}
+          <ActivityPanel featureName="Graph Panel" />
         </Content>
       </Layout>
     </PageWrapper>

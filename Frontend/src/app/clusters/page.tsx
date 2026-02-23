@@ -1,5 +1,5 @@
 /**
-Copyright 2024 JasmineGraph Team
+Copyright 2026 JasmineGraph Team
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -25,7 +25,9 @@ import { set_Selected_Cluster } from "@/redux/features/clusterData";
 import { getAllClusters, getClustersStatusByIds } from "@/services/cluster-service";
 import { useAppSelector } from "@/redux/hook";
 import ClusterRegistrationForm from "@/components/cluster-details/cluster-registration-form";
-import useAccessToken from '@/hooks/useAccessToken';
+import useAccessToken from "@/hooks/useAccessToken";
+import ActivityPanel from "@/components/common/ActivityPanel";
+import { useActivity } from "@/hooks/useActivity";
 
 const { Search } = Input;
 const { Content } = Layout;
@@ -35,6 +37,7 @@ export default function Clusters() {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+  const { reportErrorFromException } = useActivity();
   const dispatch = useDispatch();
   const { userData } = useAppSelector((state) => state.authData);
   const [clusters, setClusters] = useState<IClusterDetails[]>([]);
@@ -43,12 +46,13 @@ export default function Clusters() {
   const { selectedCluster } = useAppSelector((state) => state.clusterData);
 
   const [openModal, setOpenModal] = useState<boolean>(false);
-  const { getSrvAccessToken } = useAccessToken();
+  const { getSrvAccessToken, refreshAccessToken, isTokenExpired } = useAccessToken();
   const [form] = Form.useForm();
 
   const getAllCluster = useCallback(async () => {
     try {
-      const token = getSrvAccessToken() || "";
+      const token = getSrvAccessToken() || null;
+      // rely on axios interceptor to refresh/ retry on 401; avoid duplicate refresh logic
       const clusterRes = await getAllClusters(token);
       if (!clusterRes.data) return;
 
@@ -66,9 +70,14 @@ export default function Clusters() {
       setClusters(clustersWithStatus);
     } catch (err) {
       message.error("Failed to fetch JasmineGraph clusters");
+      reportErrorFromException(
+        "Clusters",
+        err,
+        "Failed to fetch JasmineGraph clusters."
+      );
       console.error(err);
     }
-  }, [getSrvAccessToken]);
+  }, [getSrvAccessToken, reportErrorFromException]);
 
   const setSelectedCluster = useCallback(() => {
     const selectedClusterId = localStorage.getItem("selectedCluster");
@@ -83,18 +92,15 @@ export default function Clusters() {
     }
   }, [clusters, selectedCluster, dispatch]);
 
-
   useEffect(() => {
     setSelectedCluster();
   }, [clusters, setSelectedCluster]);
-
 
   useEffect(() => {
     if (userData.email && clusters.length === 0) {
       getAllCluster();
     }
   }, [getAllCluster, userData.email, clusters.length]);
-
 
   const onSearch: SearchProps["onSearch"] = (value, _e, info) => {
     const filteredClusters = clusters.filter((cluster) => {
@@ -122,7 +128,6 @@ export default function Clusters() {
     getAllCluster();
   }
   
-
   return (
     <PageWrapper>
       <Layout style={{ padding: "24px 24px", height: "92vh" }}>
@@ -133,6 +138,8 @@ export default function Clusters() {
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
+            position: "relative",
+            overflow: "hidden",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
@@ -243,6 +250,7 @@ export default function Clusters() {
               </Col>
             </>
           )}
+          <ActivityPanel featureName="Clusters" />
         </Content>
       </Layout>
     </PageWrapper>

@@ -30,6 +30,7 @@ import { getGraphList } from "@/services/graph-service";
 import { ISelectProp } from "@/types/user-types";
 import type { FormProps } from 'antd';
 import { analyzeGraph } from "@/services/analyzer-service";
+import { useActivity } from "@/hooks/useActivity";
 
 // Render input field based on InputTypes
 const renderInputField = (key: string, inputParam: InputParam) => {
@@ -71,7 +72,7 @@ const renderInputField = (key: string, inputParam: InputParam) => {
 
 export default function QueryPropoerties() {
   const { token } = theme.useToken();
-
+  const { reportErrorFromException } = useActivity();
   const [graphs, setGraphs] = useState<ISelectProp[]>([]);
   const [isAnalysing, setIsAnalysing] = useState<boolean>(false);
   const [selectedTool, setSelectedTool] = useState<GraphAnalyzer>();
@@ -90,6 +91,11 @@ export default function QueryPropoerties() {
     }
     }catch(err){
       message.error("Failed to fetch the list of graphs");
+      reportErrorFromException(
+        "Query Interface",
+        err,
+        "Failed to fetch the list of graphs."
+      );
     }
   }
 
@@ -116,6 +122,11 @@ export default function QueryPropoerties() {
       message.success("Analysis completed successfully");
     } else {
       message.error("Error in graph analysis: " + result.message);
+      reportErrorFromException(
+        "Query Interface",
+        result.message,
+        "Failed to analyze the graph."
+      );
     }
     setIsAnalysing(false);
   }

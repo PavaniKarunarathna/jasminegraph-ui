@@ -19,6 +19,7 @@ import type { MenuProps } from "antd";
 import { QueryInterfaceMenu } from "@/data/menu-data";
 import * as Routes from "@/routes/page-routes";
 import { useRouter } from "next/navigation";
+import ActivityPanel from "@/components/common/ActivityPanel";
 
 const { Content } = Layout;
 export default function GraphPanelLayout({
@@ -49,6 +50,8 @@ export default function GraphPanelLayout({
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
+            position: "relative",
+            overflow: "hidden",
           }}
         >
           <Menu
@@ -58,6 +61,7 @@ export default function GraphPanelLayout({
             items={QueryInterfaceMenu}
           />
           {children}
+          <ActivityPanel featureName="Query Interface" />
         </Content>
       </Layout>
     </PageWrapper>
