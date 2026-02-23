@@ -23,7 +23,7 @@ import FA2 from "graphology-layout-forceatlas2";
 
 interface Props {
     onHighLevelViewClick: () => void,
-    totalNoOfEdges?: number | null
+    totalNoOfEdges?: number | null  | undefined
 }
 
 interface INode {
@@ -195,11 +195,8 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Pro
 
     useEffect(() => {
 
-        if(totalNoOfEdges || totalNoOfEdges != 0){
-                setProgress(Math.round((lowLevelGraphData.edge.length / totalNoOfEdges) * 100));
-                // count++;
-
-
+        if (totalNoOfEdges != null && totalNoOfEdges !== 0) {
+            setProgress(Math.round((lowLevelGraphData.edge.length / totalNoOfEdges) * 100));
         }
     }, [updateProgress]);
     // Incremental updates

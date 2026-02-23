@@ -13,7 +13,7 @@ limitations under the License.
 
 import { getClusterDetails, telnetConnection, tSocket } from "./graph.controller";
 import { CYPHER_AST_COMMAND } from '../constants/frontend.server.constants';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import {HTTP, TIMEOUT, UTF8_FORMAT} from '../constants/constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 
 const queryHandler = async (req, res) => {
