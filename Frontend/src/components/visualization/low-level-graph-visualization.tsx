@@ -12,16 +12,18 @@
  */
 "use client";
 
-import { Button, Card, Progress, Spin, Descriptions } from "antd";
-import React, { useEffect, useRef, useState } from "react";
-import { LeftOutlined, LoadingOutlined } from "@ant-design/icons";
-import { useAppSelector } from "@/redux/hook";
+import {Button, Card, Progress, Spin, Descriptions} from "antd";
+import React, {useEffect, useRef, useState} from "react";
+import {LeftOutlined} from "@ant-design/icons";
+import {useAppSelector} from "@/redux/hook";
 import randomColor from "randomcolor";
 import Graph from "graphology";
 import Sigma from "sigma";
 import FA2 from "graphology-layout-forceatlas2";
+
 interface Props {
-    onHighLevelViewClick: () => void;
+    onHighLevelViewClick: () => void,
+    totalNoOfEdges?: number | null  | undefined
 }
 
 interface INode {
@@ -39,12 +41,14 @@ interface IEdge {
     label?: string;
 }
 
-const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
-    const [loading, setLoading] = useState(false);
+const LowLevelGraphVisualization = ({ onHighLevelViewClick, totalNoOfEdges}: Props) => {
+    const [loading, setLoading] = useState(true);
     const [progress, setProgress] = useState(0);
+
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     const [hoveredNode, setHoveredNode] = useState<any | null>(null);
     const [hoveredEdge, setHoveredEdge] = useState<any | null>(null);
+    const [retrievedAt, setRetrievedAt] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const graphRef = useRef<any>(null);
@@ -53,16 +57,17 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
 
     const lowLevelGraphData = useAppSelector((state) => state.queryData.visualizeData);
     const isRender = useAppSelector((state) => state.queryData.visualizeData.render);
+    const updateProgress = useAppSelector((state) => state.queryData.visualizeData.updateProgress);
 
     const getColor = (partitionID: number) => {
         if (!partitionColorMap.current.has(partitionID)) {
-            partitionColorMap.current.set(partitionID, randomColor({ luminosity: "bright" }));
+            partitionColorMap.current.set(partitionID, randomColor({luminosity: "bright"}));
         }
         return partitionColorMap.current.get(partitionID)!;
     };
 
     const handleSearch = (query: string) => {
-        if (!query || query ==""|| !graphRef.current || !rendererRef.current) return;
+        if (!query || query == "" || !graphRef.current || !rendererRef.current) return;
 
         const graph = graphRef.current;
         const renderer = rendererRef.current;
@@ -114,7 +119,7 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
             const centerX = (minX + maxX) / 2;
             const centerY = (minY + maxY) / 2;
             const ratio = Math.max(maxX - minX, maxY - minY) / 400 + 0.1; // adjust zoom factor
-            camera.animate({ x: centerX, y: centerY, ratio }, { duration: 700, easing: "linear" });
+            camera.animate({x: centerX, y: centerY, ratio}, {duration: 700, easing: "linear"});
         }
     };
 
@@ -123,47 +128,82 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
     useEffect(() => {
         const initGraph = async () => {
             if (typeof window === "undefined" || !containerRef.current) return;
-
-            setLoading(true);
-            const graph = new Graph({ multi: true ,type : "directed"});
+            setRetrievedAt(new Date().toLocaleString());
+            const graph = new Graph({multi: true, type: "directed"});
             graphRef.current = graph;
 
-            const renderer = new Sigma(graph, containerRef.current, { renderLabels: true , renderEdgeLabels:true });
+            const renderer = new Sigma(graph, containerRef.current, {renderLabels: true, renderEdgeLabels: true});
             rendererRef.current = renderer;
-
-            // Click selects node
-            renderer.on("clickNode", ({ node }) => setSelectedNodeId(Number(node)));
-
             // --- HOVER TOOLTIP EVENTS ---
             renderer.on("enterNode", ({ node }) => {
                 const attrs = graph.getNodeAttributes(node);
                 setHoveredNode({ id: node, ...attrs });
+
+                const neighbors = new Set(graph.neighbors(node));
+
+                // Show only hovered node and its neighbors
+                graph.forEachNode((n) => {
+                    const visible = n === node || neighbors.has(n);
+
+                    graph.setNodeAttribute(n, "hidden", !visible);
+                    graph.setNodeAttribute(n, "highlighted", visible);
+                });
+
+                // Show only edges connected to the hovered node
+                graph.forEachEdge((edge, attr, source, target) => {
+                    const visible =
+                        source === node ||
+                        target === node ||
+                        (neighbors.has(source) && neighbors.has(target));
+
+                    graph.setEdgeAttribute(edge, "hidden", !visible);
+                    graph.setEdgeAttribute(edge, "highlighted", visible);
+                });
             });
 
+
             renderer.on("leaveNode", () => {
+                graph.forEachNode((n) => {
+                    graph.setNodeAttribute(n, "hidden", false);
+                    graph.setNodeAttribute(n, "highlighted", false);
+                });
+
+                graph.forEachEdge((e) => {
+                    graph.setEdgeAttribute(e, "hidden", false);
+                    graph.setEdgeAttribute(e, "highlighted", false);
+                });
+
                 setHoveredNode(null);
             });
 
-            renderer.on("enterEdge", ({ edge }) => {
+
+
+            renderer.on("enterEdge", ({edge}) => {
                 const attrs = graph.getEdgeAttributes(edge);
-                setHoveredEdge({ id: edge, ...attrs });
+                setHoveredEdge({id: edge, ...attrs});
             });
+
+
 
             renderer.on("leaveEdge", () => {
                 setHoveredEdge(null);
             });
-            setProgress(50);
-        };
+              };
 
         initGraph();
     }, []);
 
+    useEffect(() => {
+
+        if (totalNoOfEdges != null && totalNoOfEdges !== 0) {
+            setProgress(Math.round((lowLevelGraphData.edge.length / totalNoOfEdges) * 100));
+        }
+    }, [updateProgress]);
     // Incremental updates
     useEffect(() => {
         const updateGraph = async () => {
             if (!graphRef.current || !lowLevelGraphData) return;
 
-            setLoading(true);
 
             const graph = graphRef.current;
             const nodes: INode[] = lowLevelGraphData.node || [];
@@ -186,7 +226,6 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
                     });
                 }
                 count++;
-                setProgress(Math.round((count / total) * 100));
             });
 
             // Add edges
@@ -205,7 +244,6 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
                 }
 
                 count++;
-                setProgress(Math.round((count / total) * 100));
             });
 
             // Degree-based node sizing
@@ -214,10 +252,12 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
                 graph.setNodeAttribute(node, "size", Math.log(degree + 1) * 2 + 2);
             });
 
-            // Light layout smoothing
-            await FA2.assign(graph, { iterations: 200, settings: { gravity: 5 } });
 
-            setLoading(false);
+            // Light layout smoothing
+            FA2.assign(graph, {iterations: 200, settings: {gravity: 5}});
+            if (isRender) {
+                setLoading(false);
+            }
         };
 
         updateGraph();
@@ -235,7 +275,7 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
     };
 
     return (
-        <div style={{ width: "100%", height: "100%" }}>
+        <div style={{width: "100%", height: "100%"}}>
 
             <div
                 style={{
@@ -276,7 +316,7 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
                     />
                 </div>
 
-                <div ref={containerRef} style={{ width: "100%", height: "100%" }} >
+                <div ref={containerRef} style={{width: "100%", height: "100%"}}>
                     {loading && (
                         <div
                             style={{
@@ -293,13 +333,13 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
                                 flexDirection: "column",
                             }}
                         >
-                            <Spin size="large" tip={`Loading... ${progress}%`} />
-                            <div style={{ marginTop: 12 }}>
+                            <Spin size="large" tip={`Loading... ${progress}%`}/>
+                            <div style={{marginTop: 12}}>
                                 <Progress
                                     percent={progress}
                                     showInfo
-                                    strokeColor={{ from: "#108ee9", to: "#87d068" }}
-                                    style={{ width: 200 }}
+                                    strokeColor={{from: "#108ee9", to: "#87d068"}}
+                                    style={{width: 200}}
                                 />
                             </div>
                         </div>
@@ -308,73 +348,79 @@ const LowLevelGraphVisualization = ({ onHighLevelViewClick }: Props) => {
 
                 {/* Hover Tooltip */}
                 {hoveredNode && (
-                    <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+                    <div style={{position: "absolute", top: 16, right: 16, zIndex: 10}}>
                         <Card
                             size="small"
-                            style={{ maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                            style={{maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)"}}
                         >
-                        <div><b>ID:</b> {hoveredNode.id}</div>
+                            <div><b>ID:</b> {hoveredNode.id}</div>
 
 
-                        {Object.entries(hoveredNode).map(([key, value]) =>
-                            key !== "id" && key !== "label"  && key !== "x" && key !== "y" && key !== "color" && key !== "size"?  (
-                                <div key={key}>
-                                    <b>{key}:</b> {String(value)}
-                                </div>
-                            ) : null
-                        )}
+                            {Object.entries(hoveredNode).map(([key, value]) =>
+                                key !== "id" && key !== "label" &&  key !== "highlighted" && key !== "x" && key !== "y" && key !== "color" && key !== "size" ? (
+                                    <div key={key}>
+                                        <b>{key}:</b> {String(value)}
+                                    </div>
+                                ) : null
+                            )}
                         </Card>
                     </div>
                 )}
                 {hoveredEdge && (
-                    <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+                    <div style={{position: "absolute", top: 16, right: 16, zIndex: 10}}>
                         <Card
                             size="small"
-                            style={{ maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                            style={{maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)"}}
                         >
-                        <div><b>Edge:</b> {hoveredEdge.id}</div>
-                        {Object.entries(hoveredEdge).map(([k,v]) => (
-                            <div key={k}><b>{k}:</b> {String(v)}</div>
-                        ))}
+                            <div><b>Edge:</b> {hoveredEdge.id}</div>
+                            {Object.entries(hoveredEdge).map(([k, v]) => (
+                                <div key={k}><b>{k}:</b> {String(v)}</div>
+                            ))}
                         </Card>
                     </div>
                 )}
 
                 {/* Node details panel */}
                 {selectedNodeId && (
-                    <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+                    <div style={{position: "absolute", top: 16, right: 16, zIndex: 10}}>
                         <Card
                             size="small"
-                            style={{ maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                            style={{maxWidth: 320, borderRadius: 10, boxShadow: "0 4px 12px rgba(0,0,0,0.15)"}}
                         >
-                            <Descriptions column={1} title={`Node ${selectedNodeId}`} items={getNodeDetails()} />
+                            <Descriptions column={1} title={`Node ${selectedNodeId}`} items={getNodeDetails()}/>
                         </Card>
                     </div>
                 )}
 
                 {/* Back button */}
-                <div style={{ position: "absolute", top: 16, left: 16, zIndex: 10 }}>
+                <div style={{position: "absolute", top: 16, left: 16, zIndex: 10}}>
                     <Button
                         type="primary"
-                        icon={<LeftOutlined />}
+                        icon={<LeftOutlined/>}
                         size="large"
                         shape="circle"
                         onClick={onHighLevelViewClick}
                     />
                 </div>
+                {retrievedAt && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            bottom: 16,       // move to bottom
+                            right: 16,        // keep on right
+                            zIndex: 15,
+                            background: "#ffffffcc",
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)"
+                        }}
+                    >
+
+                        {retrievedAt}
+                    </div>
+                )}
             </div>
-
-
-            {/* Progress bar */}
-            {loading && (
-                <div style={{ marginTop: 12, maxWidth: "1400px", marginInline: "auto" }}>
-                    <Progress
-                        percent={progress}
-                        showInfo={false}
-                        strokeColor={{ from: "#108ee9", to: "#87d068" }}
-                    />
-                </div>
-            )}
         </div>
 
     );

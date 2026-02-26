@@ -14,6 +14,7 @@ limitations under the License.
 import express from 'express';
 import dotenv from 'dotenv';
 import http from 'http';
+import path from "path";
 
 import { connectToDatabase } from './databaseConnection';
 import { pool } from './databaseConnection';
@@ -41,7 +42,9 @@ const server = http.createServer(app);
 
 setupWebSocket(server);
 
-app.use('/public', express.static('public'));
+const CACHE_DIR = path.resolve("/app/caches");
+
+app.use('/public', express.static(CACHE_DIR));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());

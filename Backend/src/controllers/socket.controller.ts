@@ -15,11 +15,11 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import readline from 'readline';
 import WebSocket from 'ws';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import { HTTP, TIMEOUT, UTF8_FORMAT } from '../constants/constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import {
     CYPHER_COMMAND,
-    INDEGREE_COMMAND,
+    INDEGREE_COMMAND, NO_OF_FIELDS_IN_UPBYTES_CMD,
     OUTDEGREE_COMMAND,
     SEMANTIC_BEAM_SEARCH_COMMAND
 } from '../constants/frontend.server.constants';
@@ -186,7 +186,7 @@ const streamQueryResult = async (clientId: string, clusterId:string, graphId:str
       producer();
 
       tSocket.on('data', (buffer) => {
-        sharedBuffer.push(buffer.toString('utf8'))
+        sharedBuffer.push(buffer.toString(UTF8_FORMAT))
       });
 
       tSocket.on('end', () => {
@@ -194,7 +194,7 @@ const streamQueryResult = async (clientId: string, clusterId:string, graphId:str
       });
 
       // Write the command to the Telnet server
-      tSocket.write(CYPHER_COMMAND + '|' + graphId + '|' + query + '\n', 'utf8');
+      tSocket.write(CYPHER_COMMAND + '|' + graphId + '|' + query + '\n', UTF8_FORMAT);
     });
   } catch (err) {
     return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -225,6 +225,8 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
 
                 if(remaining.trim() == '-1'){
                     console.log("Termination signal received. Closing Telnet connection.");
+                    sendToClient(clientId, { "done":"true"})
+
                     return
                 }
 
@@ -235,6 +237,8 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
 
                     if (jsonString) {
                         if (jsonString == "-1") {
+                            sendToClient(clientId, { "done":"true"})
+
                             console.log("Termination signal received. Closing Telnet connection.");
                             return; // Exit the producer loop
                         }
@@ -250,6 +254,8 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
 
                     if(remaining.trim() == '-1' || jsonString == '-1'){
                         console.log("Termination signal received. Closing Telnet connection.");
+                        sendToClient(clientId, { "done":"true"})
+
                         return
                     }
                 }
@@ -264,7 +270,7 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
             producer();
 
             tSocket.on('data', (buffer) => {
-                sharedBuffer.push(buffer.toString('utf8'))
+                sharedBuffer.push(buffer.toString(UTF8_FORMAT))
             });
 
             tSocket.on('end', () => {
@@ -272,7 +278,7 @@ const semanticBeamSearch = async (clientId: string, clusterId:string, graphId:st
             });
 
             // Write the command to the Telnet server
-            tSocket.write(SEMANTIC_BEAM_SEARCH_COMMAND + '|' + graphId + '|' + query + '\n', 'utf8');
+            tSocket.write(SEMANTIC_BEAM_SEARCH_COMMAND + '|' + graphId + '|' + query + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -323,7 +329,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
 
                     if (line.startsWith("UPBYTES")) {
                         const parts = line.split('|');
-                        const updates: {
+                        let updates: {
                             graphId: string;
                             uploaded: number;
                             total: number;
@@ -332,8 +338,23 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
                             triplesPerSecond: number;
                             startTime: string;
                             uploadPath: string;
+                            llmRunnerString: string;
+                            inferenceEngine: string;
+                            model:string;
+                            chunkSize:number;
+                            kgConstructionStatus:string;
+                            hdfsIp:string;
+                            hdfsPort:string;
+
                         }[] = [];
-                        for (let i = 1; i < parts.length; i += 7) {
+                        for (let i = 1; i < parts.length; i += NO_OF_FIELDS_IN_UPBYTES_CMD) {
+                            const slice = parts.slice(i, i + NO_OF_FIELDS_IN_UPBYTES_CMD).map((p) => (p ?? '').trim());
+
+                            // Validate we have the expected number of fields for one UPBYTES record
+                            if (slice.length < NO_OF_FIELDS_IN_UPBYTES_CMD) {
+                                console.warn(`Malformed UPBYTES message: expected ${NO_OF_FIELDS_IN_UPBYTES_CMD} fields, got ${slice.length}`, parts);
+                                break;
+                            }
                             const graphId = parts[i];
                             const uploaded = parseFloat(parts[i + 1] || "0");
                             const total = parseFloat(parts[i + 2] || "0");
@@ -342,9 +363,17 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
                             const triplesPerSecond = parseFloat(parts[i + 5] || "0");
                             const startTime = parts[i + 6];
                             const uploadPath = parts[i + 7];
+                            const llmRunnerString  = parts[i+8];
+                            const inferenceEngine = parts[i+9];
+                            const model = parts[i+10];
+                            const chunkSize =parseInt(parts[i+11]);
+                            const kgConstructionStatus = parts[i+12];
+                            const hdfsIp = parts[i+13];
+                            const hdfsPort = parts[i+14];
 
-                            updates.push({ graphId, uploaded, total, percentage, bytesPerSecond, triplesPerSecond, startTime, uploadPath });
+                            updates.push({ graphId, uploaded, total, percentage, bytesPerSecond, triplesPerSecond, startTime, uploadPath, llmRunnerString, inferenceEngine, model, chunkSize, kgConstructionStatus, hdfsIp, hdfsPort});
                         }
+                        updates = updates.reverse();
                         // Send updates only if still connected
                         if (client.readyState === WebSocket.OPEN) {
                             sendToClient(clientId, {
@@ -366,7 +395,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
             producer();
 
             tSocket.on('data', (buffer) => {
-                sharedBuffer.push(buffer.toString('utf8'));
+                sharedBuffer.push(buffer.toString(UTF8_FORMAT));
             });
 
             tSocket.on('end', () => {
@@ -390,7 +419,7 @@ const streamUploadBytes = async (clientId: string, clusterId: string, graphIds: 
 
             // Build subscription command
             const command = ['UPBYTES', ...graphIds].join('|');
-            tSocket.write(command + '\n', 'utf8');
+            tSocket.write(command + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         console.error({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -420,7 +449,7 @@ const stopStream = async (clientId: string, clusterId: string) => {
 
             // Build subscription command
             const command = 'STOP'
-            tSocket.write(command + '\n', 'utf8');
+            tSocket.write(command + '\n', UTF8_FORMAT);
         });
     } catch (err) {
         console.error({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
@@ -497,7 +526,7 @@ const getDegreeData = async (clientId: string, clusterId:string, graphId:string,
       producer();
 
       tSocket.on('data', (buffer) => {
-        sharedBuffer.push(buffer.toString('utf8'))
+        sharedBuffer.push(buffer.toString(UTF8_FORMAT))
       });
 
       tSocket.on('end', () => {
@@ -505,7 +534,7 @@ const getDegreeData = async (clientId: string, clusterId:string, graphId:string,
       });
 
       // Write the command to the Telnet server
-      tSocket.write(COMMAND + '|' + graphId + '\n', 'utf8');
+      tSocket.write(COMMAND + '|' + graphId + '\n', UTF8_FORMAT);
     });
   } catch (err) {
     return console.log({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
