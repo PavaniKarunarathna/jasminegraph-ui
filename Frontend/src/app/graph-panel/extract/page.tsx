@@ -61,6 +61,13 @@ type ISocketResponse = {
     clientId?: string
 }
 
+type KafkaStreamStatus = {
+    connected: boolean;
+    graphId?: string;
+    topicName?: string;
+    updatedAt?: string;
+};
+
 export default function GraphUpload() {
     const { reportError, reportErrorFromException } = useActivity();
     const dispatch = useAppDispatch();
@@ -79,6 +86,7 @@ export default function GraphUpload() {
     const [clientId, setClientID] = useState<string>('');
     const [showMeta, setShowMeta] = useState<string>("");
     const [pausedGraphs, setPausedGraphs] = useState<Record<string, boolean>>({});
+    const [kafkaStatus, setKafkaStatus] = useState<KafkaStreamStatus>({ connected: false });
 
 
     const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(WS_URL, { share: true, shouldReconnect: (closeEvent) => true });
@@ -208,6 +216,31 @@ export default function GraphUpload() {
         return () => clearInterval(interval);
     }, [clientId, readyState, showUploadSection, hadoopModalOpen]);
 
+    useEffect(() => {
+        const loadKafkaStatus = () => {
+            const raw = localStorage.getItem("kafkaStreamStatus");
+            if (!raw) {
+                setKafkaStatus({ connected: false });
+                return;
+            }
+            try {
+                setKafkaStatus(JSON.parse(raw));
+            } catch {
+                setKafkaStatus({ connected: false });
+            }
+        };
+
+        loadKafkaStatus();
+        const onStorage = (event: StorageEvent) => {
+            if (event.key === "kafkaStreamStatus") {
+                loadKafkaStatus();
+            }
+        };
+
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
+
     const onSearch = (value: string) => {
         const filteredClusters = graphs.filter((cluster) => cluster.name.toLowerCase().includes(value.toLowerCase()));
     };
@@ -225,6 +258,26 @@ export default function GraphUpload() {
                   </div>
               }
             />
+
+            <Card style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <Text strong>Kafka Stream</Text>
+                        <div>
+                            Status: {kafkaStatus.connected ? "Connected" : "Disconnected"}
+                        </div>
+                        {kafkaStatus.topicName && (
+                            <div>Topic: {kafkaStatus.topicName}</div>
+                        )}
+                        {kafkaStatus.graphId && (
+                            <div>Graph ID: {kafkaStatus.graphId}</div>
+                        )}
+                    </div>
+                    <Button disabled>
+                        {kafkaStatus.connected ? "Disconnect" : "Connect"}
+                    </Button>
+                </div>
+            </Card>
 
             {(showUploadSection || (uploadBytesGraphs && uploadBytesGraphs.updates.length === 0)) &&
                 <div className="graph-upload-panel">
@@ -266,7 +319,18 @@ export default function GraphUpload() {
 
 
                 </div>}
-            <KafkaUploadModal open={kafkaModalOpen} setOpen={setKafkaModelOpen} />
+            <KafkaUploadModal
+                open={kafkaModalOpen}
+                setOpen={setKafkaModelOpen}
+                onStreamStarted={(payload) => {
+                    setKafkaStatus({
+                        connected: true,
+                        graphId: payload.graphId,
+                        topicName: payload.topicName,
+                        updatedAt: new Date().toISOString(),
+                    });
+                }}
+            />
             <Modal title=""   footer={null}     open={hadoopModalOpen} onCancel={()=>setHadoopModelOpen(false)}>
                 {hadoopModalOpen  && <HadoopKgForm  initForm={initForm[0]} onSuccess={()=>  {
                     setShowUploadSection(false)
