@@ -20,6 +20,8 @@ export interface IGraphDetails {
   upload_path: string,
   status: string,
   partitions: IGraphPartitionDetails[],
+  id_algorithm?: number | string,
+  is_directed?: string,
 }
 
 export interface IGraphPartitionDetails {
