@@ -20,7 +20,8 @@ import { GRAPH_REMOVE_COMMAND,
     TRIANGLE_COUNT_COMMAND,
     PROPERTIES_COMMAND,
     STOP_CONSTRUCT_KG_COMMAND,
-    CONSTRUCT_KG_COMMAND} from './../constants/frontend.server.constants';
+    CONSTRUCT_KG_COMMAND,
+    KAFKA_STREAM_COMMAND} from './../constants/frontend.server.constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import { getClusterByIdRepo } from '../repository/cluster.repository';
 import { HTTP, TIMEOUT } from '../constants/constants';
@@ -188,6 +189,126 @@ const uploadGraph = async (req: Request, res: Response) => {
         });
     } catch (err) {
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+    }
+};
+
+const startKafkaStream = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host || connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    const {
+        isExistingGraph,
+        graphId,
+        useDefaultGraphId,
+        partitionAlgorithm,
+        isDirected,
+        useDefaultKafka,
+        kafkaConfigPath,
+        topicName,
+    } = req.body;
+
+    if (!topicName) {
+        return res.status(400).send({ message: "Kafka topicName is required" });
+    }
+
+    try {
+        telnetConnection({ host: connection.host, port: connection.port })(() => {
+            let commandOutput = "";
+            let responded = false;
+
+            const writeLine = (value: string) => {
+                tSocket.write(value + "\n");
+            };
+
+            const finish = (status: number, payload: any) => {
+                if (responded) return;
+                responded = true;
+                res.status(status).send(payload);
+            };
+
+            tSocket.on("data", (buffer) => {
+                const msg = buffer.toString("utf8").trim();
+                commandOutput += msg + "\n";
+                const lowerMsg = msg.toLowerCase();
+
+                if (lowerMsg.includes("error:")) {
+                    finish(400, { message: msg });
+                    return;
+                }
+
+                if (lowerMsg.includes("do you want to stream into existing graph")) {
+                    writeLine(isExistingGraph ? "y" : "n");
+                    return;
+                }
+
+                if (lowerMsg.includes("send the existing graph id")) {
+                    if (!graphId) {
+                        finish(400, { message: "graphId is required for existing graph" });
+                        return;
+                    }
+                    writeLine(String(graphId));
+                    return;
+                }
+
+                if (lowerMsg.includes("do you use default graph id")) {
+                    writeLine(useDefaultGraphId === false ? "n" : "y");
+                    return;
+                }
+
+                if (lowerMsg.includes("input your graph id")) {
+                    if (!graphId) {
+                        finish(400, { message: "graphId is required when not using default graph id" });
+                        return;
+                    }
+                    writeLine(String(graphId));
+                    return;
+                }
+
+                if (lowerMsg.includes("choose an option")) {
+                    if (!partitionAlgorithm) {
+                        finish(400, { message: "partitionAlgorithm is required for new graph" });
+                        return;
+                    }
+                    writeLine(String(partitionAlgorithm));
+                    return;
+                }
+
+                if (lowerMsg.includes("is this graph directed")) {
+                    writeLine(isDirected ? "y" : "n");
+                    return;
+                }
+
+                if (lowerMsg.includes("default kafka consumer")) {
+                    writeLine(useDefaultKafka ? "y" : "n");
+                    return;
+                }
+
+                if (lowerMsg.includes("kafka configuration file")) {
+                    if (!kafkaConfigPath) {
+                        finish(400, { message: "kafkaConfigPath is required when useDefaultKafka is false" });
+                        return;
+                    }
+                    writeLine(kafkaConfigPath);
+                    return;
+                }
+
+                if (lowerMsg.includes("send kafka topic name")) {
+                    writeLine(topicName);
+                    return;
+                }
+
+                if (lowerMsg.includes("start listening to") || lowerMsg.includes("received the kafka topic")) {
+                    finish(200, { message: "Kafka streaming started", output: commandOutput });
+                }
+            });
+
+            tSocket.write(KAFKA_STREAM_COMMAND + "\n");
+        });
+    } catch (err) {
+        console.error("❌ Error in startKafkaStream:", err);
+        return res.status(500).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
 
@@ -622,4 +743,4 @@ const getGraphData = async (req, res) => {
     }
 }
 
-export { getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};
+export { getGraphList, uploadGraph, startKafkaStream, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};
