@@ -26,3 +26,4 @@ export const PROPERTIES_COMMAND = "prp";
 export const UPLOAD_FROM_HDFS = "adhdfs";
 export const CONSTRUCT_KG_COMMAND = "constructkg";
 export const STOP_CONSTRUCT_KG_COMMAND = "stop-constructkg";
+export const KAFKA_STREAM_COMMAND = "adstrmk";
