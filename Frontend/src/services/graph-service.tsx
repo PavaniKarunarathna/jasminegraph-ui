@@ -144,3 +144,37 @@ export async function deleteGraph(id: string) {
     return Promise.reject();
   }
 }
+
+export type KafkaStreamRequest = {
+        isExistingGraph: boolean;
+        graphId?: string;
+        useDefaultGraphId?: boolean;
+        partitionAlgorithm?: string;
+        isDirected?: boolean;
+        useDefaultKafka: boolean;
+        kafkaConfigPath?: string;
+        topicName: string;
+        kafkaBroker?: string;
+        groupId?: string;
+        offsetReset?: string;
+        numberOfPartitions?: number;
+};
+
+export async function startKafkaStream(
+        payload: KafkaStreamRequest
+): Promise<{ data: { message: string } }> {
+        try {
+                const result = await authApi({
+                        method: "post",
+                        url: `/backend/graph/kafka/stream`,
+                        headers: {
+                                "Cluster-ID": localStorage.getItem("selectedCluster"),
+                        },
+                        data: payload,
+                }).then((res) => res.data);
+
+                return { data: result };
+        } catch (err) {
+                return Promise.reject(err);
+        }
+}
