@@ -35,11 +35,14 @@ import { RcFile } from "antd/es/upload/interface";
 import { toast } from "react-toastify";
 import axios from "axios";
 import { useActivity } from "@/hooks/useActivity";
+import { useRouter } from "next/navigation";
+import * as Routes from "@/routes/page-routes";
 
 const { Dragger } = Upload;
 
 export default function GraphUpload() {
   const { reportErrorFromException } = useActivity();
+  const router = useRouter();
   const [kafkaModalOpen, setKafkaModelOpen] = useState<boolean>(false);
   const [hadoopModalOpen, setHadoopModelOpen] = useState<boolean>(false);
   const [file, setFile] = useState<File>();
@@ -158,6 +161,9 @@ export default function GraphUpload() {
       <KafkaUploadModal
         open={kafkaModalOpen}
         setOpen={(state: boolean) => setKafkaModelOpen(state)}
+        onStreamStarted={() => {
+          router.push(Routes.SIDE_MENU_ROUTES.graphPanel + Routes.GRAPH_PANEL_ROUTES.extract);
+        }}
       />
       <HadoopUploadModal
         open={hadoopModalOpen}
