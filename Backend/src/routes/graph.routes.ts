@@ -16,9 +16,7 @@ import {
     getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties,
     getDataFromHadoop, constructKG, stopConstructKG,
     updateKGConstructionMetaByClusterId, getKGConstructionMetaByGraphId, getOnProgressKGConstructionMeta, validateHDFS,
-    constructKGTXT,
-    startKafkaStream
-} from '../controllers/graph.controller';
+    constructKGTXT, startKafkaStream } from '../controllers/graph.controller';
 import multer from 'multer';
 import path from 'path';
 import fs from "fs";
