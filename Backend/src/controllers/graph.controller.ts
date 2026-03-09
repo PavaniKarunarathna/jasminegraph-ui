@@ -1,3 +1,4 @@
+
 /**
  Copyright 2024 JasmineGraph Team
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +14,8 @@
 const { TelnetSocket } = require('telnet-stream');
 const net = require('net');
 import { Request, Response } from 'express';
-import { GRAPH_REMOVE_COMMAND,
+import {
+    GRAPH_REMOVE_COMMAND,
     GRAPH_UPLOAD_COMMAND,
     GRAPH_DATA_COMMAND,
     LIST_COMMAND,
@@ -21,10 +23,12 @@ import { GRAPH_REMOVE_COMMAND,
     PROPERTIES_COMMAND,
     STOP_CONSTRUCT_KG_COMMAND,
     CONSTRUCT_KG_COMMAND,
-    KAFKA_STREAM_COMMAND} from './../constants/frontend.server.constants';
+    CONSTRUCT_KG_COMMAND_LOCAL,
+    KAFKA_STREAM_COMMAND
+} from './../constants/frontend.server.constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import { getClusterByIdRepo } from '../repository/cluster.repository';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import {HTTP, PDF_EXTENSION, TIMEOUT, TXT_EXTENSION, UTF8_FORMAT} from '../constants/constants';
 import { parseGraphFile } from '../utils/graph';
 import {
     createKGConstructionMetaRepo,
@@ -32,7 +36,13 @@ import {
     updateKGConstructionMetaStatusRepo,
     deleteKGConstructionMetaRepo,
     KGStatus
+
 } from "../repository/kg-construction-meta.repository";
+import fs from "fs";
+import path from "path";
+
+import pdfParse from "pdf-parse";
+
 
 export let socket;
 export let tSocket;
@@ -43,6 +53,9 @@ export type IConnection = {
 }
 
 const DEV_MODE = process.env.DEV_MODE === 'true';
+const  HOST = process.env.HOST ;
+const  PORT = process.env.PORT ;
+const CACHE_DIR = path.resolve("/app/caches");
 
 export const getClusterDetails = async (req: Request) => {
   const clusterID = req.header('Cluster-ID');
@@ -100,16 +113,20 @@ const getGraphList = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString('UTF8_FORMAT');
             });
 
       // Write the command to the Telnet server
-      tSocket.write(LIST_COMMAND + '\n', 'utf8', () => {
+      tSocket.write(LIST_COMMAND + '\n', 'UTF8_FORMAT', () => {
         setTimeout(() => {
           if (commandOutput) {
             console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
-            res.status(HTTP[200]).send(JSON.parse(commandOutput));
-          } else {
+              try {
+                  res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+              } catch (err) {
+                  return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+              }          } else {
             res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
           }
         }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
@@ -130,14 +147,19 @@ const getClusterProperties = async (req: Request, res: Response) => {
       let commandOutput = '';
 
       tSocket.on('data', (buffer) => {
-        commandOutput += buffer.toString('utf8');
+        commandOutput += buffer.toString('UTF8_FORMAT');
       });
 
       // Write the command to the Telnet server
-      tSocket.write(PROPERTIES_COMMAND + '\n', 'utf8', () => {
+      tSocket.write(PROPERTIES_COMMAND + '\n', 'UTF8_FORMAT', () => {
         setTimeout(() => {
           if (commandOutput) {
-            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+              try {
+                res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+              } catch (err) {
+                return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+            }
           } else {
             res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
           }
@@ -156,7 +178,7 @@ const uploadGraph = async (req: Request, res: Response) => {
     }
     const { graphName } = req.body;
     const fileName = req.file?.filename;
-    const filePath = DEV_MODE ? "/var/tmp/data/" + fileName : fileName; // Get the file path
+    const filePath = HOST +":"+PORT + "/public/" + fileName ;
 
     console.log(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n');
 
@@ -165,25 +187,24 @@ const uploadGraph = async (req: Request, res: Response) => {
             let commandOutput = "";
 
             tSocket.on("data", (buffer) => {
-                commandOutput += buffer.toString("utf8");
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
-            tSocket.write(GRAPH_UPLOAD_COMMAND + '\n', "utf8", () => {
+
+
+            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'UTF8_FORMAT', () => {
                 setTimeout(() => {
-                    if (commandOutput.includes("send")) {
-                        commandOutput = "";
-                        tSocket.write(graphName + '|' + filePath + '\n', "utf8", () => {
-                            setTimeout(() => {
-                                if (commandOutput) {
-                                    res.status(HTTP[200]).send(commandOutput);
-                                } else {
-                                    res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
-                                }
-                            }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
-                        });
+                    if (commandOutput) {
+                        try {
+                           let output =  JSON.parse(commandOutput)
+                            res.status(HTTP[200]).send(output);
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }
                     } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
-                }, TIMEOUT.hundred); // Adjust timeout to wait for the server response if needed
+                }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
             });
 
         });
@@ -335,7 +356,7 @@ export const constructKG = async (req: Request, res: Response) => {
             let commandOutput = "";
 
             tSocket.on("data", async (buffer) => {
-                const msg = buffer.toString("utf8").trim();
+                const msg = buffer.toString(UTF8_FORMAT).trim();
                 console.log("Master:", msg);
                 commandOutput += msg + "\n";
 
@@ -346,12 +367,12 @@ export const constructKG = async (req: Request, res: Response) => {
 
                 } else if (msg.includes("HDFS Server IP:")) {
                     console.log("IP:", hdfsIp);
-                    tSocket.write(hdfsIp.toString("utf8").trim() + "\n");
+                    tSocket.write(hdfsIp.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("HDFS Server Port:")) {
-                    console.log("port:", hdfsPort.toString().toString("utf8").trim() + "\n");
-                    tSocket.write(hdfsPort.toString().toString("utf8").trim() + "\n");
+                    console.log("port:", hdfsPort.toString().toString(UTF8_FORMAT).trim() + "\n");
+                    tSocket.write(hdfsPort.toString().toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("HDFS file path:")) {
-                    tSocket.write(hdfsFilePath.toString("utf8").trim() + "\n");
+                    tSocket.write(hdfsFilePath.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("There exists a graph with the file path")) {
                     if (status === "paused") {
                         tSocket.write("y\n"); // or "n" depending on user choice
@@ -362,23 +383,35 @@ export const constructKG = async (req: Request, res: Response) => {
                     }
                 } else if (msg.includes("Graph Id to resume?")) {
 
-                    tSocket.write(graphId.toString("utf8").trim() + "\n");
+                    tSocket.write(graphId.toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("LLM runner hostname:port:")) {
-                    tSocket.write(llmRunnerString.toString("utf8").trim() + "\n");
-                } else if (msg.includes("LLM inference engine?")) {
-                    tSocket.write(inferenceEngine.toString("utf8").trim() + "\n");
-                } else if (msg.includes("What is the LLM you want to use?")) {
-                    tSocket.write(model.toString("utf8").trim() + "\n");
-                } else if (msg.includes("The provided HDFS path is invalid") || msg.includes("not available on") || msg.includes("Could not connect to")) {
-                    tSocket.write("exit\n");
-                    return res.status(HTTP[400]).send({
-                        code: ErrorCode.ServerError,
-                        message: ErrorMsg.ServerError,
-                        errorDetails: {errorMsg: msg}
-                    });
+                    if (llmRunnerString == null) {
+                        // If llmRunnerString is null, the UI has sent this request to validate the reachability of
+                        // HDFS file system from the jasminegraph cluster, hence we return 200
+                        console.log("ending telnet connection")
+                        tSocket.write("exit\n");
+                        res.status(HTTP[200]).send({message: "HDFS is reachable from the cluster"});
 
+                    } else {
+                        tSocket.write(llmRunnerString.toString(UTF8_FORMAT).trim() + "\n");
+
+                    }
+                } else if (msg.includes("LLM inference engine?")) {
+                    tSocket.write(inferenceEngine.toString(UTF8_FORMAT).trim() + "\n");
+                } else if (msg.includes("What is the LLM you want to use?")) {
+                    if (model == null) {
+                        // If model is null, the UI has sent this request to validate the reachability of the LLM
+                        // inference engine from the jasminegraph cluster, hence we return 200
+                        console.log("ending telnet connection")
+                        tSocket.write("exit\n");
+
+                        res.status(HTTP[200]).send({message: "LLM is reachable from the cluster"});
+                    } else {
+                        tSocket.write(model.toString(UTF8_FORMAT).trim() + "\n");
+
+                    }
                 } else if (msg.includes("chunk size")) {
-                    tSocket.write(chunkSize.toString().toString("utf8").trim() + "\n");
+                    tSocket.write(chunkSize.toString().toString(UTF8_FORMAT).trim() + "\n");
                 } else if (msg.includes("Graph Id")) {
                     const graphId = msg.split(":")[1].trim()
                     tSocket.write("exit\n");
@@ -406,8 +439,17 @@ export const constructKG = async (req: Request, res: Response) => {
 
                     console.log("KG extraction started");
                     res.status(HTTP[200]).send({message: "Knowledge Graph construction Started"});
-                    // tSocket.end();
                 }
+                else if(msg.includes("HDFS file System Not reachable.")) {
+                    res.status(HTTP[400]).send({message: msg});
+
+                } else if(msg.includes("Could not connect")) {
+                res.status(HTTP[400]).send({message: msg});
+
+            }  else if(msg.includes("The provided HDFS path is invalid.")) {
+                res.status(HTTP[400]).send({message: msg});
+
+            }
             });
 
             // Kick off by sending constructkg
@@ -418,6 +460,176 @@ export const constructKG = async (req: Request, res: Response) => {
         return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
+
+
+export const constructKGTXT = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    if (!req.file) {
+        return res.status(400).json({error: "No file uploaded"});
+    }
+    let customName = path.basename(req.body.textFileName);
+// Strict whitelist validation
+    const validNameRegex = /^[A-Za-z0-9_.-]+$/;
+
+    if (!customName || !validNameRegex.test(customName) || customName.includes("..")) {
+        return res.status(400).json({ error: "Invalid file name" });
+    }
+   
+    if (!customName) {
+        return res.status(400).json({error: "Missing text file name"});
+    }
+
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (ext !== PDF_EXTENSION && ext !== TXT_EXTENSION) {
+        return res.status(400).json({error: "Only .txt or .pdf allowed"});
+    }
+
+    const finalFileName = customName + ext;
+    const finalPath = path.join(CACHE_DIR, finalFileName);
+
+    if (fs.existsSync(finalPath)) {
+        console.log("Duplicate file found:", finalFileName);
+
+        let existingContent = "";
+
+        if (ext === ".txt") {
+            existingContent = fs.readFileSync(finalPath, UTF8_FORMAT);
+        } else {
+            const pdfData = fs.readFileSync(finalPath);
+            const parsed = await pdfParse(pdfData);
+            existingContent = parsed.text;
+
+        }
+
+        return res.json({
+            status: "duplicate",
+            filename: finalFileName,
+            extractedText: existingContent
+        });
+    }
+
+    // ----------------------------------------------------
+    // STEP B: MOVE FILE FROM TMP → UPLOADS
+    // ----------------------------------------------------
+    // STEP B: MOVE FILE FROM TMP → UPLOADS
+    try {
+        // Ensure the tmp file exists
+        const tmpStats = await fs.promises.lstat(req.file.path);
+
+        // Optional: prevent symlinks (lstat vs stat)
+        if (tmpStats.isSymbolicLink()) {
+            return res.status(400).json({ error: "Invalid file upload" });
+        }
+
+        // Atomic move
+        await fs.promises.rename(req.file.path, finalPath);
+
+        // Optional: set strict permissions on uploaded file
+        await fs.promises.chmod(finalPath, 0o600);
+    } catch (err) {
+        console.error("File move failed:", err);
+        // Attempt cleanup if tmp still exists
+        try { await fs.promises.unlink(req.file.path); } catch {}
+        return res.status(500).json({ error: "Failed to save uploaded file" });
+    }
+    // ----------------------------------------------------
+    // STEP C: TEXT EXTRACTION
+    // ----------------------------------------------------
+    let extractedText = "";
+
+    if (ext === ".txt") {
+        extractedText = fs.readFileSync(finalPath, UTF8_FORMAT);
+    } else {
+        const pdfBuffer = fs.readFileSync(finalPath);
+        const parsed = await pdfParse(pdfBuffer);
+        extractedText = parsed.text;
+    }
+
+    const textFilePath = path.join(CACHE_DIR, customName + ".txt");
+    fs.writeFileSync(textFilePath, extractedText, UTF8_FORMAT);
+    const {
+        llmRunnerString,    // "host:port"
+        inferenceEngine,    // "ollama" | "vllm"
+        model,              // model name
+        chunkSize,          // bytes
+    } = req.body;
+    const downloadURI =  HOST + ":" +PORT + "/public/" + customName + ".txt" ;
+    console.log("downloadURI:", downloadURI);
+
+    try {
+        telnetConnection({ host: connection.host, port: connection.port })(() => {
+            let completed = false;
+
+            tSocket.on("data", async (buffer) => {
+                const msg = buffer.toString(UTF8_FORMAT).trim();
+                console.log("Master:", msg);
+
+                /* 1. Local file path */
+                if (msg.includes("Local TXT file absolute path")) {
+                    tSocket.write(downloadURI.trim() + "\n");
+                }
+
+                /* 2. LLM runner */
+                else if (msg.includes("LLM runner hostname:port")) {
+                    tSocket.write(llmRunnerString.trim() + "\n");
+                }
+
+                /* 3. Inference engine */
+                else if (msg.includes("LLM inference engine")) {
+                    tSocket.write(inferenceEngine.trim() + "\n");
+                }
+
+                /* 4. Model name */
+                else if (msg.includes("LLM model name")) {
+                    tSocket.write(model.trim() + "\n");
+                }
+
+                /* 5. Chunk size */
+                else if (msg.includes("Chunk size")) {
+                    tSocket.write(chunkSize.toString().trim() + "\n");
+                }
+
+                /* 6. Final Graph ID */
+                else if (msg.startsWith("Graph Id:")) {
+                    const newGraphId = msg.split(":")[1].trim();
+                    completed = true;
+                    tSocket.write("exit\n");
+                    res.status(200).send({
+                        message: "Knowledge Graph construction started",
+                        graphId: newGraphId
+                    });
+                }
+
+                /* Error handling from C++ */
+                else if (
+                    msg.includes("Invalid local file path") ||
+                    msg.includes("Socket write failed")
+                ) {
+                    tSocket.write("exit\n");
+                    return res.status(400).send({
+                        code: ErrorCode.ServerError,
+                        message: msg
+                    });
+                }
+            });
+
+
+            tSocket.write(CONSTRUCT_KG_COMMAND_LOCAL + "\n");
+        });
+    } catch (err) {
+        console.error("❌ Knowledge graph construction failed: ", err);
+        return res.status(500).send({
+            code: ErrorCode.ServerError,
+            message: ErrorMsg.ServerError,
+            errorDetails: err
+        });
+    }
+};
+
 
 export const stopConstructKG = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
@@ -432,21 +644,11 @@ export const stopConstructKG = async (req: Request, res: Response) => {
             let commandOutput = "";
             req.setTimeout(0);
             tSocket.on("data", async (buffer) => {
-                const msg = buffer.toString("utf8").trim();
+                const msg = buffer.toString(UTF8_FORMAT).trim();
                 commandOutput += msg + "\n";
 
                 if (msg.includes("done")) {
                     tSocket.write("exit\n");
-
-                    if (status === "stopped") {
-                        await deleteKGConstructionMetaRepo(Number(graphId));
-                    } else {
-                        await updateKGConstructionMetaStatusRepo(
-                            Number(graphId),
-                            status as KGStatus
-                        );
-                    }
-
                     console.log("✅ KG extraction stopped successfully");
                     res.status(200).send({ message: "Knowledge Graph construction Stopped" });
                 }
@@ -572,11 +774,11 @@ const removeGraph = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString('UTF8_FORMAT');
             });
 
             // Write the command to the Telnet server
-            tSocket.write(GRAPH_REMOVE_COMMAND + '|' + req.params.id + '\n', 'utf8', () => {
+            tSocket.write(GRAPH_REMOVE_COMMAND + '|' + req.params.id + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         return res.status(HTTP[200]).send(commandOutput);
@@ -653,15 +855,19 @@ const constructKGHadoop = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(LIST_COMMAND + '\n', 'utf8', () => {
+            tSocket.write(LIST_COMMAND + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        res.status(HTTP[200]).send(JSON.parse(commandOutput));
-                    } else {
+                        try {
+                            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }                    } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
                 }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
@@ -683,11 +889,11 @@ const triangleCount = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(TRIANGLE_COUNT_COMMAND + '|' + graph_id + '|' + priority + '\n', 'utf8', () => {
+            tSocket.write(TRIANGLE_COUNT_COMMAND + '|' + graph_id + '|' + priority + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         res.status(HTTP[200]).send(commandOutput);
@@ -724,15 +930,19 @@ const getGraphData = async (req, res) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('utf8');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
-            tSocket.write(GRAPH_DATA_COMMAND + '\n', 'utf8', () => {
+            tSocket.write(GRAPH_DATA_COMMAND + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
-                        res.status(HTTP[200]).send({data: JSON.parse(commandOutput)});
-                    } else {
+                        try {
+                            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }                    } else {
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
                 }, TIMEOUT.hundred); // Adjust timeout to wait for the server response if needed

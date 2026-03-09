@@ -15,6 +15,7 @@ limitations under the License.
 import { IGraphDetails } from "@/types/graph-types";
 import {IKnowledgeGraph} from "@/types/graph-types";
 import {authApi} from "./axios";
+import axios from "axios";
 
 export async function getGraphList(): Promise<{data: IGraphDetails[]}> {
   try {
@@ -72,16 +73,16 @@ export async function getOnProgressKGConstructionMetaData(): Promise<{data: IKno
 }
 
 export async function constructKG(
-    hdfsIp: string,
-    hdfsPort: string,
-    hdfsFilePath: string,
-    llmRunnerString: string,
-    inferenceEngine: string,
-    model: string,
-    chunkSize: number,
-    status: string | undefined,
-    graphId: string| undefined
-): Promise<{ data: IGraphDetails[] }> {
+    hdfsIp: string | null,
+    hdfsPort: string | null,
+    hdfsFilePath: string | null,
+    llmRunnerString:  string | null ,
+    inferenceEngine: string | null,
+    model: string | null,
+    chunkSize: number | null,
+    status: string | null | undefined,
+    graphId: string | null | undefined
+): Promise<{ status: any; message: any; data: any }> {
     try {
         console.log("selected cluster",localStorage.getItem("selectedCluster"))
         const result = await authApi({
@@ -101,11 +102,31 @@ export async function constructKG(
                 status,
                 graphId
             },
-        }).then((res) => res.data);
+        }).then((res) => res);
 
-        return result;
-    } catch (err) {
-        return Promise.reject(err);
+        return {
+            status: result.status,
+            message: result.data?.message ?? "Success",
+            data: result.data?.data ?? []
+        };
+    } catch (err: any) {
+        // ✅ Axios error handling
+        if (axios.isAxiosError(err)) {
+            return {
+                status: err.response?.status ?? 500,
+                message:
+                    err.response?.data?.message ??
+                    "HDFS validation failed",
+                data: null,
+            };
+        }
+
+        //  Non-Axios error
+        return {
+            status: 500,
+            message: "Unexpected error occurred",
+            data: null,
+        };
     }
 }
 

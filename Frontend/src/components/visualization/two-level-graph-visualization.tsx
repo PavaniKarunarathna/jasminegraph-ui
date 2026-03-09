@@ -57,7 +57,7 @@ const TwoLevelGraphVisualization = ({
   const [percent, setPercent] = useState<number>(0);
   const [mode, setMode] = useState<"highView" | "lowView">("highView");
   const [selectedNode, setSelectedNode] = useState<number[] | null>(null);
-
+  const [totalNoOfEdges, setTotalNoOfEdges] = useState<number | null>(null);
   const onLowLevelViewClick = async () => {
     setMode("lowView");
   };
@@ -74,10 +74,10 @@ const TwoLevelGraphVisualization = ({
         fullscreen
       />
       {mode == "lowView" && (
-        <LowLevelGraphVisualization onHighLevelViewClick={onHighLevelViewClick} />
+        <LowLevelGraphVisualization totalNoOfEdges={totalNoOfEdges} onHighLevelViewClick={onHighLevelViewClick} />
       )}
       {mode == "highView" && (
-        <HighLevelGraphVisualization graph={graph} graphID={graphID} onPartitionClick={onPartitionClick} onLowLevelViewClick={onLowLevelViewClick} selectedNode={selectedNode} setSelectedNode={setSelectedNode} />
+        <HighLevelGraphVisualization graph={graph} graphID={graphID} onPartitionClick={onPartitionClick} onLowLevelViewClick={onLowLevelViewClick} selectedNode={selectedNode} setSelectedNode={setSelectedNode} setTotalNoOfEdges={setTotalNoOfEdges} />
       )}
       {progressing && <Progress percent={percent} showInfo={false} />}
     </div>

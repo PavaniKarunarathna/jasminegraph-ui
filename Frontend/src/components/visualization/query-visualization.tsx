@@ -26,6 +26,18 @@ const QueryVisualization = () => {
     const nodesRef = useRef<any>(null);
     const edgesRef = useRef<any>(null);
     const { messagePool } = useAppSelector((state) => state.queryData);
+    const PARTITION_COLORS = [
+
+      '#6CB8E6', // lighter (still visible)
+      '#5FA8E6', // bright but visible
+      '#4E9CD3', // medium sky blue
+      '#3A86B8', // classic blue
+      '#2C73A8', // strong blue
+      '#1F5A8A', // steel blue
+      '#123E6B', // dark blue
+      '#0B3C5D', // deep navy
+    ];
+
 
     /**
      * ✅ Extract relations (edges) safely, even if no pathObj present
@@ -101,7 +113,8 @@ const QueryVisualization = () => {
                             if (n.id === seedNode) {
                                 colorMap.set(seedNode, '#FF5733'); // example: red/orange for seed
                             } else {
-                                colorMap.set(partition, randomColor({  format: 'hex' }));
+                                const color = PARTITION_COLORS[partition % PARTITION_COLORS.length];
+                                colorMap.set(partition, color);
                             }
                         }
 
@@ -205,8 +218,9 @@ const QueryVisualization = () => {
             <div
                 ref={networkContainerRef}
                 style={{
-                    width: '100%',
-                    height: '450px',
+                    width: "150%",
+                    maxWidth: "1400px",
+                    height: "calc(100vh - 150px)",
                     border: '1px solid lightgray',
                     backgroundColor: '#ffffff',
                 }}

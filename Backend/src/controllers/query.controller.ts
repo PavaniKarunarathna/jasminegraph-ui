@@ -13,7 +13,7 @@ limitations under the License.
 
 import { getClusterDetails, telnetConnection, tSocket } from "./graph.controller";
 import { CYPHER_AST_COMMAND } from '../constants/frontend.server.constants';
-import { HTTP, TIMEOUT } from '../constants/constants';
+import {HTTP, TIMEOUT, UTF8_FORMAT} from '../constants/constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 
 const queryHandler = async (req, res) => {
@@ -63,12 +63,12 @@ const queryHandler = async (req, res) => {
       producer();
 
       tSocket.on('data', (buffer) => {
-        commandOutput += buffer.toString('utf8')
-        sharedBuffer.push(buffer.toString('utf8'))
+        commandOutput += buffer.toString(UTF8_FORMAT)
+        sharedBuffer.push(buffer.toString(UTF8_FORMAT))
       });
 
       // Write the command to the Telnet server
-      tSocket.write(CYPHER_AST_COMMAND + '|1|' + '\n', 'utf8', () => {
+      tSocket.write(CYPHER_AST_COMMAND + '|1|' + '\n', UTF8_FORMAT, () => {
         setTimeout(() => {
           if (commandOutput) {
             console.log(new Date().toLocaleString() + ' - ' + CYPHER_AST_COMMAND + ' - ' + commandOutput);

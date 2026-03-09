@@ -67,7 +67,7 @@ export default function GraphDistribution() {
         return {
             idgraph : graph.id,
           value: graph.idgraph,
-          label: graph.name,
+          label: graph.idgraph + "|" + graph.name,
         }
       })
       setGraphOptions(filteredData)
