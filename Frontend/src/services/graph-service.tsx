@@ -217,3 +217,21 @@ export async function getGraphClusterProperties(): Promise<{ data: Record<string
         return Promise.reject(err);
     }
 }
+
+export async function getKafkaStreamingDefaults(): Promise<{ data: Record<string, unknown> }> {
+    try {
+        const result = await authApi({
+            method: "get",
+            url: `/backend/graph/kafka/defaults`,
+            headers: {
+                "Cluster-ID": localStorage.getItem("selectedCluster"),
+            },
+        }).then((res) => res.data);
+
+        return {
+            data: result,
+        };
+    } catch (err) {
+        return Promise.reject(err);
+    }
+}
