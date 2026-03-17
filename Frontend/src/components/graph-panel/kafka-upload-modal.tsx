@@ -14,7 +14,7 @@ limitations under the License.
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Descriptions, Divider, Form, Input, Modal, Radio, Select, Space, Tag, message } from 'antd';
-import { getGraphList, startKafkaStream, KafkaStreamRequest, getGraphClusterProperties } from '@/services/graph-service';
+import { getGraphList, startKafkaStream, KafkaStreamRequest, getKafkaStreamingDefaults } from '@/services/graph-service';
 import { IGraphDetails, IKafkaStreamStatus } from '@/types/graph-types';
 import axios from 'axios';
 
@@ -127,17 +127,7 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
     if (!open) return;
     resetModalState();
 
-    const getStringByKeys = (source: Record<string, unknown>, keys: string[]) => {
-      for (const key of keys) {
-        const value = source[key];
-        if (typeof value === 'string' && value.trim()) {
-          return value.trim();
-        }
-      }
-      return undefined;
-    };
-
-    Promise.all([getGraphList(), getGraphClusterProperties()])
+    Promise.all([getGraphList(), getKafkaStreamingDefaults()])
       .then(([graphRes, propertyRes]) => {
         setGraphsData(graphRes.data);
         const options = graphRes.data.map((graph) => ({
@@ -147,24 +137,9 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
         setGraphs(options);
 
         const properties = (propertyRes?.data ?? {}) as Record<string, unknown>;
-        const broker = getStringByKeys(properties, [
-          'org.jasminegraph.server.streaming.kafka.host',
-          'kafka.host',
-          'metadata.broker.list',
-          'kafkaBroker',
-          'broker',
-        ]);
-        const groupId = getStringByKeys(properties, [
-          'org.jasminegraph.server.streaming.kafka.group.id',
-          'kafka.group.id',
-          'group.id',
-          'groupId',
-        ]);
-        const offsetReset = getStringByKeys(properties, [
-          'org.jasminegraph.server.streaming.kafka.auto.offset.reset',
-          'auto.offset.reset',
-          'offsetReset',
-        ]);
+        const broker = typeof properties.broker === 'string' ? properties.broker.trim() : '';
+        const groupId = typeof properties.groupId === 'string' ? properties.groupId.trim() : '';
+        const offsetReset = typeof properties.offsetReset === 'string' ? properties.offsetReset.trim() : '';
 
         setKafkaDefaults({
           broker: broker || DEFAULT_KAFKA_LABEL,

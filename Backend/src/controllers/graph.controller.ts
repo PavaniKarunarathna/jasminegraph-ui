@@ -21,6 +21,7 @@ import {
     LIST_COMMAND,
     TRIANGLE_COUNT_COMMAND,
     PROPERTIES_COMMAND,
+    KAFKA_DEFAULTS_COMMAND,
     STOP_CONSTRUCT_KG_COMMAND,
     CONSTRUCT_KG_COMMAND,
     CONSTRUCT_KG_COMMAND_LOCAL,
@@ -169,6 +170,38 @@ const getClusterProperties = async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
   }
+};
+
+const getKafkaStreamDefaults = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host || connection.port)) {
+        return res.status(404).send(connection);
+    }
+    try {
+        telnetConnection({host: connection.host, port: connection.port})(() => {
+            let commandOutput = '';
+
+            tSocket.on('data', (buffer) => {
+                commandOutput += buffer.toString('UTF8_FORMAT');
+            });
+
+            tSocket.write(KAFKA_DEFAULTS_COMMAND + '\n', 'UTF8_FORMAT', () => {
+                setTimeout(() => {
+                    if (commandOutput) {
+                        try {
+                            res.status(HTTP[200]).send(JSON.parse(commandOutput));
+                        } catch (err) {
+                            return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+                        }
+                    } else {
+                        res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
+                    }
+                }, TIMEOUT.default);
+            });
+        });
+    } catch (err) {
+        return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+    }
 };
 
 const uploadGraph = async (req: Request, res: Response) => {
@@ -1022,4 +1055,4 @@ const getGraphData = async (req, res) => {
     }
 }
 
-export { getGraphList, uploadGraph, startKafkaStream, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};
+export { getGraphList, uploadGraph, startKafkaStream, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getKafkaStreamDefaults, getDataFromHadoop ,constructKGHadoop , validateHDFS};
