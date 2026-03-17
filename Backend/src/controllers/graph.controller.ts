@@ -215,7 +215,7 @@ const uploadGraph = async (req: Request, res: Response) => {
 
 const startKafkaStream = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
-    if (!(connection.host || connection.port)) {
+    if (!(connection.host && connection.port)) {
         return res.status(404).send(connection);
     }
 
@@ -230,101 +230,170 @@ const startKafkaStream = async (req: Request, res: Response) => {
         topicName,
     } = req.body;
 
-    if (!topicName) {
+    const normalizedTopicName = String(topicName ?? "").trim();
+    const normalizedGraphId = graphId === undefined || graphId === null ? "" : String(graphId).trim();
+    const normalizedPartitionAlgorithm = partitionAlgorithm === undefined || partitionAlgorithm === null
+        ? ""
+        : String(partitionAlgorithm).trim();
+    const normalizedKafkaConfigPath = kafkaConfigPath === undefined || kafkaConfigPath === null
+        ? ""
+        : String(kafkaConfigPath).trim();
+
+    if (!normalizedTopicName) {
         return res.status(400).send({ message: "Kafka topicName is required" });
+    }
+
+    if (isExistingGraph && !normalizedGraphId) {
+        return res.status(400).send({ message: "graphId is required for existing graph" });
+    }
+
+    if (!isExistingGraph && useDefaultGraphId === false && !normalizedGraphId) {
+        return res.status(400).send({ message: "graphId is required when not using default graph id" });
+    }
+
+    if (!isExistingGraph && !normalizedPartitionAlgorithm) {
+        return res.status(400).send({ message: "partitionAlgorithm is required for new graph" });
+    }
+
+    if (!isExistingGraph && normalizedPartitionAlgorithm && !["1", "2", "3"].includes(normalizedPartitionAlgorithm)) {
+        return res.status(400).send({ message: "partitionAlgorithm must be one of 1, 2, or 3" });
+    }
+
+    if (useDefaultKafka === false && !normalizedKafkaConfigPath) {
+        return res.status(400).send({ message: "kafkaConfigPath is required when useDefaultKafka is false" });
+    }
+
+    if (normalizedGraphId && !/^\d+$/.test(normalizedGraphId)) {
+        return res.status(400).send({ message: "graphId must be a numeric value" });
     }
 
     try {
         telnetConnection({ host: connection.host, port: connection.port })(() => {
             let commandOutput = "";
+            let promptBuffer = "";
             let responded = false;
+
+            const timeoutRef = setTimeout(() => {
+                finish(504, {
+                    message: "Timed out while waiting for Kafka stream initialization response",
+                    output: commandOutput,
+                });
+            }, TIMEOUT.default * 3);
 
             const writeLine = (value: string) => {
                 tSocket.write(value + "\n");
             };
 
+            const cleanup = () => {
+                clearTimeout(timeoutRef);
+                tSocket.removeListener("data", onData);
+            };
+
+            const getResolvedGraphId = () => {
+                if (graphId) {
+                    return String(graphId);
+                }
+                const defaultIdMatch = commandOutput.match(/do you use default graph id:\s*(\d+)/i);
+                return defaultIdMatch?.[1];
+            };
+
             const finish = (status: number, payload: any) => {
                 if (responded) return;
                 responded = true;
+                cleanup();
                 res.status(status).send(payload);
             };
 
-            tSocket.on("data", (buffer) => {
-                const msg = buffer.toString("utf8").trim();
-                commandOutput += msg + "\n";
-                const lowerMsg = msg.toLowerCase();
+            const onData = (buffer: Buffer) => {
+                const chunk = buffer.toString("utf8");
+                commandOutput += chunk;
+                promptBuffer += chunk.toLowerCase();
 
-                if (lowerMsg.includes("error:")) {
-                    finish(400, { message: msg });
+                if (promptBuffer.includes("error:")) {
+                    finish(400, { message: "Server returned an error during Kafka initialization", output: commandOutput });
                     return;
                 }
 
-                if (lowerMsg.includes("do you want to stream into existing graph")) {
+                if (promptBuffer.includes("do you want to stream into existing graph")) {
+                    promptBuffer = "";
                     writeLine(isExistingGraph ? "y" : "n");
                     return;
                 }
 
-                if (lowerMsg.includes("send the existing graph id")) {
-                    if (!graphId) {
+                if (promptBuffer.includes("send the existing graph id")) {
+                    promptBuffer = "";
+                    if (!normalizedGraphId) {
                         finish(400, { message: "graphId is required for existing graph" });
                         return;
                     }
-                    writeLine(String(graphId));
+                    writeLine(normalizedGraphId);
                     return;
                 }
 
-                if (lowerMsg.includes("do you use default graph id")) {
+                if (promptBuffer.includes("do you use default graph id")) {
+                    promptBuffer = "";
                     writeLine(useDefaultGraphId === false ? "n" : "y");
                     return;
                 }
 
-                if (lowerMsg.includes("input your graph id")) {
-                    if (!graphId) {
+                if (promptBuffer.includes("input your graph id")) {
+                    promptBuffer = "";
+                    if (!normalizedGraphId) {
                         finish(400, { message: "graphId is required when not using default graph id" });
                         return;
                     }
-                    writeLine(String(graphId));
+                    writeLine(normalizedGraphId);
                     return;
                 }
 
-                if (lowerMsg.includes("choose an option")) {
-                    if (!partitionAlgorithm) {
+                if (promptBuffer.includes("choose an option")) {
+                    promptBuffer = "";
+                    if (!normalizedPartitionAlgorithm) {
                         finish(400, { message: "partitionAlgorithm is required for new graph" });
                         return;
                     }
-                    writeLine(String(partitionAlgorithm));
+                    writeLine(normalizedPartitionAlgorithm);
                     return;
                 }
 
-                if (lowerMsg.includes("is this graph directed")) {
+                if (promptBuffer.includes("is this graph directed")) {
+                    promptBuffer = "";
                     writeLine(isDirected ? "y" : "n");
                     return;
                 }
 
-                if (lowerMsg.includes("default kafka consumer")) {
+                if (promptBuffer.includes("default kafka consumer")) {
+                    promptBuffer = "";
                     writeLine(useDefaultKafka ? "y" : "n");
                     return;
                 }
 
-                if (lowerMsg.includes("kafka configuration file")) {
-                    if (!kafkaConfigPath) {
+                if (promptBuffer.includes("kafka configuration file")) {
+                    promptBuffer = "";
+                    if (!normalizedKafkaConfigPath) {
                         finish(400, { message: "kafkaConfigPath is required when useDefaultKafka is false" });
                         return;
                     }
-                    writeLine(kafkaConfigPath);
+                    writeLine(normalizedKafkaConfigPath);
                     return;
                 }
 
-                if (lowerMsg.includes("send kafka topic name")) {
-                    writeLine(topicName);
+                if (promptBuffer.includes("send kafka topic name")) {
+                    promptBuffer = "";
+                    writeLine(normalizedTopicName);
                     return;
                 }
 
-                if (lowerMsg.includes("start listening to") || lowerMsg.includes("received the kafka topic")) {
-                    finish(200, { message: "Kafka streaming started", output: commandOutput });
+                if (promptBuffer.includes("received the kafka topic") || promptBuffer.includes("start listening to")) {
+                    finish(200, {
+                        message: "Kafka streaming started",
+                        output: commandOutput,
+                        graphId: getResolvedGraphId(),
+                    });
                 }
-            });
+            };
 
+            tSocket.on("data", onData);
             tSocket.write(KAFKA_STREAM_COMMAND + "\n");
         });
     } catch (err) {

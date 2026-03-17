@@ -16,7 +16,7 @@ import SegmentedProgress from "@/components/extract-panel/progress-bar";
 import React, {useEffect, useState} from "react";
 import {InboxOutlined, LoadingOutlined} from "@ant-design/icons";
 import type { RcFile } from "antd/es/upload/interface";
-import {Button, Col, Divider, message, Row, Typography, Upload, Modal, Input, Card, Spin} from "antd";
+import {Button, Col, Descriptions, Divider, message, Row, Typography, Upload, Modal, Input, Card, Spin, Tag} from "antd";
 import Image from "next/image";
 import KafkaUploadModal from "@/components/graph-panel/kafka-upload-modal";
 import HadoopExtractModal from "@/components/extract-panel/hadoop-extract-modal";
@@ -24,8 +24,6 @@ import {useAppDispatch, useAppSelector} from "@/redux/hook";
 import {add_upload_bytes} from "@/redux/features/queryData";
 import useWebSocket, {ReadyState} from "react-use-websocket";
 import axios from "axios";
-import kafkaLOGO from "@/assets/images/kafka-logo.jpg";
-import hadoopLOGO from "@/assets/images/hadoop-logo.jpg";
 import { useActivity } from "@/hooks/useActivity";
 import {
     deleteGraph,
@@ -37,7 +35,7 @@ import HadoopKgForm from "@/components/extract-panel/hadoop-kg-form";
 import {LRUCache} from "lru-cache";
 import Status = LRUCache.Status;
 import { DownOutlined, UpOutlined } from "@ant-design/icons";
-import {IKnowledgeGraph} from "@/types/graph-types";
+import {IKafkaStreamStatus, IKnowledgeGraph} from "@/types/graph-types";
 import KgForm from "@/components/extract-panel/kg-form";
 
 const { Dragger } = Upload;
@@ -45,6 +43,8 @@ const { Search } = Input;
 const { Title, Text } = Typography;
 
 const WS_URL = "ws://localhost:8080";
+const KAFKA_LOGO_SRC = "/assets/images/kafka-logo.jpg";
+const HADOOP_LOGO_SRC = "/assets/images/hadoop-logo.jpg";
 
 interface IUploadBytes {
     graphId: string;
@@ -71,12 +71,7 @@ type ISocketResponse = {
     clientId?: string
 }
 
-type KafkaStreamStatus = {
-    connected: boolean;
-    graphId?: string;
-    topicName?: string;
-    updatedAt?: string;
-};
+const KAFKA_STATUS_STORAGE_KEY = "kafkaStreamStatus";
 
 export default function GraphUpload() {
     const { reportError, reportErrorFromException } = useActivity();
@@ -96,7 +91,7 @@ export default function GraphUpload() {
     const [clientId, setClientID] = useState<string>('');
     const [showMeta, setShowMeta] = useState<string>("");
     const [pausedGraphs, setPausedGraphs] = useState<Record<string, boolean>>({});
-    const [kafkaStatus, setKafkaStatus] = useState<KafkaStreamStatus>({ connected: false });
+    const [kafkaStatus, setKafkaStatus] = useState<IKafkaStreamStatus | null>(null);
     const [tpsHistory, setTpsHistory] = useState<Record<string, number[]>>({});
     const getAverageTPS = (graphId: string) => {
         const history = tpsHistory[graphId] || [];
@@ -218,21 +213,21 @@ export default function GraphUpload() {
 
     useEffect(() => {
         const loadKafkaStatus = () => {
-            const raw = localStorage.getItem("kafkaStreamStatus");
+            const raw = localStorage.getItem(KAFKA_STATUS_STORAGE_KEY);
             if (!raw) {
-                setKafkaStatus({ connected: false });
+                setKafkaStatus(null);
                 return;
             }
             try {
                 setKafkaStatus(JSON.parse(raw));
             } catch {
-                setKafkaStatus({ connected: false });
+                setKafkaStatus(null);
             }
         };
 
         loadKafkaStatus();
         const onStorage = (event: StorageEvent) => {
-            if (event.key === "kafkaStreamStatus") {
+            if (event.key === KAFKA_STATUS_STORAGE_KEY) {
                 loadKafkaStatus();
             }
         };
@@ -263,18 +258,51 @@ export default function GraphUpload() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                         <Text strong>Kafka Stream</Text>
-                        <div>
-                            Status: {kafkaStatus.connected ? "Connected" : "Disconnected"}
+                        <div style={{ marginTop: "8px", marginBottom: "12px" }}>
+                            <Tag color={kafkaStatus?.connected ? "success" : "default"}>
+                                {kafkaStatus?.connected ? "Connected" : "Disconnected"}
+                            </Tag>
                         </div>
-                        {kafkaStatus.topicName && (
-                            <div>Topic: {kafkaStatus.topicName}</div>
-                        )}
-                        {kafkaStatus.graphId && (
-                            <div>Graph ID: {kafkaStatus.graphId}</div>
+                        {kafkaStatus?.connected ? (
+                            <Descriptions bordered size="small" column={1} style={{ marginTop: "8px" }}>
+                                <Descriptions.Item label="Topic">{kafkaStatus.topicName}</Descriptions.Item>
+                                <Descriptions.Item label="Graph Mode">
+                                    {kafkaStatus.isExistingGraph ? "Existing Graph" : "New Graph"}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Graph ID">
+                                    {kafkaStatus.graphId || "Server default graph ID"}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Graph Name">
+                                    {kafkaStatus.graphName || "New graph will be created"}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Partition Algorithm">
+                                    {kafkaStatus.partitionAlgorithmLabel || "Not applicable"}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Graph Type">
+                                    {kafkaStatus.graphTypeLabel || "Not applicable"}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Kafka Source">
+                                    {kafkaStatus.useDefaultKafka ? "Server Default" : "Custom Config File"}
+                                </Descriptions.Item>
+                                {kafkaStatus.useDefaultKafka ? (
+                                    <>
+                                        <Descriptions.Item label="Kafka Broker">{kafkaStatus.kafkaBroker || "Default from server config"}</Descriptions.Item>
+                                        <Descriptions.Item label="Consumer Group ID">{kafkaStatus.groupId || "Default from server config"}</Descriptions.Item>
+                                        <Descriptions.Item label="Offset Reset">{kafkaStatus.offsetReset || "earliest"}</Descriptions.Item>
+                                    </>
+                                ) : (
+                                    <Descriptions.Item label="Kafka Config Path">{kafkaStatus.kafkaConfigPath}</Descriptions.Item>
+                                )}
+                                {kafkaStatus.updatedAt && (
+                                    <Descriptions.Item label="Connected At">{new Date(kafkaStatus.updatedAt).toLocaleString()}</Descriptions.Item>
+                                )}
+                            </Descriptions>
+                        ) : (
+                            <div>No active Kafka stream configuration is stored yet.</div>
                         )}
                     </div>
                     <Button disabled>
-                        {kafkaStatus.connected ? "Disconnect" : "Connect"}
+                        {kafkaStatus?.connected ? "Connected" : "Not Connected"}
                     </Button>
                 </div>
             </Card>
@@ -304,12 +332,12 @@ export default function GraphUpload() {
                     <Row className="external-upload">
                         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
                             <div className="upload-card" onClick={() => setKafkaModelOpen(true)}>
-                                <Image src={kafkaLOGO} width={200} alt="Apache Kafka" />
+                                <Image src={KAFKA_LOGO_SRC} width={200} height={120} alt="Apache Kafka" />
                             </div>
                         </Col>
                         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
                             <div className="upload-card" onClick={() => setHadoopModelOpen(true)}>
-                                <Image src={hadoopLOGO} width={200} alt="Hadoop HDFS" />
+                                <Image src={HADOOP_LOGO_SRC} width={200} height={120} alt="Hadoop HDFS" />
                             </div>
                         </Col>
                     </Row>
@@ -320,12 +348,7 @@ export default function GraphUpload() {
                 open={kafkaModalOpen}
                 setOpen={setKafkaModelOpen}
                 onStreamStarted={(payload) => {
-                    setKafkaStatus({
-                        connected: true,
-                        graphId: payload.graphId,
-                        topicName: payload.topicName,
-                        updatedAt: new Date().toISOString(),
-                    });
+                    setKafkaStatus(payload);
                 }}
             />
             <Modal title=""   footer={null}     open={hadoopModalOpen} onCancel={()=>setHadoopModelOpen(false)}>

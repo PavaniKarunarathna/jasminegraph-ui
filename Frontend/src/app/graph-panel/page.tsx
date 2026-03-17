@@ -26,8 +26,6 @@ import {
   Modal,
   Input,
 } from "antd";
-import kafkaLOGO from "@/assets/images/kafka-logo.jpg";
-import hadoopLOGO from "@/assets/images/hadoop-logo.jpg";
 import Image from "next/image";
 import KafkaUploadModal from "@/components/graph-panel/kafka-upload-modal";
 import HadoopUploadModal from "@/components/graph-panel/hadoop-upload-modal";
@@ -37,6 +35,10 @@ import axios from "axios";
 import { useActivity } from "@/hooks/useActivity";
 import { useRouter } from "next/navigation";
 import * as Routes from "@/routes/page-routes";
+import { IKafkaStreamStatus } from "@/types/graph-types";
+
+const KAFKA_LOGO_SRC = "/assets/images/kafka-logo.jpg";
+const HADOOP_LOGO_SRC = "/assets/images/hadoop-logo.jpg";
 
 const { Dragger } = Upload;
 
@@ -151,19 +153,19 @@ export default function GraphUpload() {
       <Row className="external-upload">
         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
           <div className="upload-card" onClick={() => setKafkaModelOpen(true)}>
-            <Image src={kafkaLOGO} width={200} alt="Apache Kafka" />
+            <Image src={KAFKA_LOGO_SRC} width={200} height={120} alt="Apache Kafka" />
           </div>
         </Col>
         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
           <div className="upload-card" onClick={() => setHadoopModelOpen(true)}>
-            <Image src={hadoopLOGO} width={200} alt="Hadoop HDFS" />
+            <Image src={HADOOP_LOGO_SRC} width={200} height={120} alt="Hadoop HDFS" />
           </div>
         </Col>
       </Row>
       <KafkaUploadModal
         open={kafkaModalOpen}
         setOpen={(state: boolean) => setKafkaModelOpen(state)}
-        onStreamStarted={() => {
+        onStreamStarted={(_payload: IKafkaStreamStatus) => {
           router.push(Routes.SIDE_MENU_ROUTES.graphPanel + Routes.GRAPH_PANEL_ROUTES.extract);
         }}
       />

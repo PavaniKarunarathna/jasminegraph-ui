@@ -183,7 +183,7 @@ export type KafkaStreamRequest = {
 
 export async function startKafkaStream(
         payload: KafkaStreamRequest
-): Promise<{ data: { message: string } }> {
+): Promise<{ data: { message: string; graphId?: string } }> {
         try {
                 const result = await authApi({
                         method: "post",
@@ -198,4 +198,22 @@ export async function startKafkaStream(
         } catch (err) {
                 return Promise.reject(err);
         }
+}
+
+export async function getGraphClusterProperties(): Promise<{ data: Record<string, unknown> }> {
+    try {
+        const result = await authApi({
+            method: "get",
+            url: `/backend/graph/info`,
+            headers: {
+                "Cluster-ID": localStorage.getItem("selectedCluster"),
+            },
+        }).then((res) => res.data);
+
+        return {
+            data: result,
+        };
+    } catch (err) {
+        return Promise.reject(err);
+    }
 }
