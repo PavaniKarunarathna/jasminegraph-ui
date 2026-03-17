@@ -18,7 +18,6 @@ import {InboxOutlined, LoadingOutlined} from "@ant-design/icons";
 import type { RcFile } from "antd/es/upload/interface";
 import {Button, Col, Descriptions, Divider, message, Row, Typography, Upload, Modal, Input, Card, Spin, Tag} from "antd";
 import Image from "next/image";
-import KafkaUploadModal from "@/components/graph-panel/kafka-upload-modal";
 import HadoopExtractModal from "@/components/extract-panel/hadoop-extract-modal";
 import {useAppDispatch, useAppSelector} from "@/redux/hook";
 import {add_upload_bytes} from "@/redux/features/queryData";
@@ -43,7 +42,6 @@ const { Search } = Input;
 const { Title, Text } = Typography;
 
 const WS_URL = "ws://localhost:8080";
-const KAFKA_LOGO_SRC = "/assets/images/kafka-logo.jpg";
 const HADOOP_LOGO_SRC = "/assets/images/hadoop-logo.jpg";
 
 interface IUploadBytes {
@@ -78,7 +76,6 @@ export default function GraphUpload() {
     const dispatch = useAppDispatch();
     const uploadBytesGraphs  = useAppSelector((state) => state.queryData.uploadBytes);
 
-    const [kafkaModalOpen, setKafkaModelOpen] = useState<boolean>(false);
     const [hadoopModalOpen, setHadoopModelOpen] = useState<boolean>(false);
     const [file, setFile] = useState<File>();
     const [fileUrl, setFileUrl] = useState<string>();
@@ -331,11 +328,6 @@ export default function GraphUpload() {
 
                     <Row className="external-upload">
                         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
-                            <div className="upload-card" onClick={() => setKafkaModelOpen(true)}>
-                                <Image src={KAFKA_LOGO_SRC} width={200} height={120} alt="Apache Kafka" />
-                            </div>
-                        </Col>
-                        <Col xs={20} sm={16} md={12} lg={12} xl={12}>
                             <div className="upload-card" onClick={() => setHadoopModelOpen(true)}>
                                 <Image src={HADOOP_LOGO_SRC} width={200} height={120} alt="Hadoop HDFS" />
                             </div>
@@ -344,13 +336,6 @@ export default function GraphUpload() {
 
 
                 </div>}
-            <KafkaUploadModal
-                open={kafkaModalOpen}
-                setOpen={setKafkaModelOpen}
-                onStreamStarted={(payload) => {
-                    setKafkaStatus(payload);
-                }}
-            />
             <Modal title=""   footer={null}     open={hadoopModalOpen} onCancel={()=>setHadoopModelOpen(false)}>
                 {hadoopModalOpen  && <HadoopKgForm  currentPage={isLocalFileUpload? 1: 0} initForm={initForm as IKnowledgeGraph} onSuccess={()=>  {
                     setShowUploadSection(false)
