@@ -18,40 +18,34 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ClusterRegistrationForm from "../../../../../Frontend/src/components/cluster-details/cluster-registration-form";
-import { addNewCluster } from "../../../../../Frontend/src/services/cluster-service";
-import useAccessToken from "../../../../../Frontend/src/hooks/useAccessToken";
-import { useActivity } from "../../../../../Frontend/src/hooks/useActivity";
+import { addNewCluster } from "@/services/cluster-service";
+import useAccessToken from "@/hooks/useAccessToken";
+import { useActivity } from "@/hooks/useActivity";
 
-jest.mock("../../../../../Frontend/src/services/cluster-service", () => ({
+jest.mock("@/services/cluster-service", () => ({
 	addNewCluster: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/hooks/useAccessToken", () => jest.fn());
+jest.mock("@/hooks/useAccessToken", () => jest.fn());
 
-jest.mock("../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
 	useActivity: jest.fn(),
 }));
 
 jest.mock("antd", () => {
-	const ReactLib: typeof React = require("react");
+	const ReactLib = require("react");
+	const FormContext = ReactLib.createContext(null);
 
-	type FormContextType = {
-		values: Record<string, string>;
-		handleChange: (field: string, value: string) => void;
-	} | null;
-
-	const FormContext = ReactLib.createContext<FormContextType>(null);
-
-	const Form = ({ name, onFinish, children }: { name?: string; onFinish?: (values: Record<string, string>) => void; children: React.ReactNode }) => {
-		const [values, setValues] = ReactLib.useState<Record<string, string>>({});
+	const Form = ({ name, onFinish, children }: any) => {
+		const [values, setValues] = ReactLib.useState({});
 
 		const handleChange = (field: string, value: string) => {
-			setValues((prev: Record<string, string>) => ({ ...prev, [field]: value }));
+			setValues((prev: any) => ({ ...prev, [field]: value }));
 		};
 
-		const handleSubmit = (e: React.FormEvent) => {
+		const handleSubmit = (e: any) => {
 			e.preventDefault();
-			if (!values.name || !values.host || !values.port) return;
+			if (!(values as any).name || !(values as any).host || !(values as any).port) return;
 			onFinish?.(values);
 		};
 
@@ -62,8 +56,8 @@ jest.mock("antd", () => {
 		);
 	};
 
-	Form.Item = ({ label, name, children }: { label?: string; name?: string; children: React.ReactElement }) => {
-		const context = ReactLib.useContext(FormContext);
+	Form.Item = ({ label, name, children }: any) => {
+		const context: any = ReactLib.useContext(FormContext);
 		const child = ReactLib.Children.only(children);
 		if (!name) return <div>{children}</div>;
 
@@ -73,20 +67,20 @@ jest.mock("antd", () => {
 				{ReactLib.cloneElement(child, {
 					id: name,
 					value: context?.values?.[name] || "",
-					onChange: (e: React.ChangeEvent<HTMLInputElement>) => context?.handleChange(name, e.target.value),
+					onChange: (e: any) => context?.handleChange(name, e.target.value),
 				})}
 			</div>
 		);
 	};
 
-	const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input type="text" {...props} />;
+	const Input = (props: any) => <input type="text" {...props} />;
 
-	const Button = ({ children, htmlType, onClick }: { children: React.ReactNode; htmlType?: "button" | "submit"; onClick?: () => void }) => (
+	const Button = ({ children, htmlType, onClick }: any) => (
 		<button type={htmlType || "button"} onClick={onClick}>{children}</button>
 	);
 
-	const Select: any = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
-	Select.Option = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+	const Select: any = ({ children }: any) => <div>{children}</div>;
+	Select.Option = ({ children }: any) => <div>{children}</div>;
 
 	return {
 		Form,
@@ -135,12 +129,13 @@ describe("ClusterRegistrationForm", () => {
 		render(<ClusterRegistrationForm onSuccess={onSuccess} onCancel={onCancel} form={mockForm} />);
 
 		await user.type(screen.getByLabelText(/cluster name/i), "Cluster A");
+		await user.type(screen.getByLabelText(/description/i), "Test description");
 		await user.type(screen.getByLabelText(/host/i), "localhost");
 		await user.type(screen.getByLabelText(/port/i), "7777");
 		await user.click(screen.getByRole("button", { name: /add/i }));
 
 		await waitFor(() => {
-			expect(mockAddNewCluster).toHaveBeenCalledWith("Cluster A", "", "localhost", "7777", "token-123");
+			expect(mockAddNewCluster).toHaveBeenCalledWith("Cluster A", "Test description", "localhost", "7777", "token-123");
 		});
 
 		expect(mockMessage.loading).toHaveBeenCalledWith("Connecting New Cluster", 2);
