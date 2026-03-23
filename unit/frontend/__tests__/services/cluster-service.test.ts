@@ -35,6 +35,7 @@ import {
 
 describe('cluster-service', () => {
   const clusterId = String(mockClusterFixture.id);
+  const clusterPort = String(mockClusterFixture.port);
   const userId = mockUserFixture.id;
 
   beforeEach(() => {
@@ -44,7 +45,7 @@ describe('cluster-service', () => {
   it('addNewCluster posts cluster payload and returns response data', async () => {
     mockAuthApi.mockResolvedValueOnce({ data: 'Cluster created' });
 
-    const result = await addNewCluster(mockClusterFixture.name, mockClusterFixture.description, mockClusterFixture.host, mockClusterFixture.port, 'token-1');
+    const result = await addNewCluster(mockClusterFixture.name, mockClusterFixture.description, mockClusterFixture.host, clusterPort, 'token-1');
 
     expect(mockAuthApi).toHaveBeenCalledWith({
       method: 'post',
@@ -54,7 +55,7 @@ describe('cluster-service', () => {
         name: mockClusterFixture.name,
         description: mockClusterFixture.description,
         host: mockClusterFixture.host,
-        port: mockClusterFixture.port,
+        port: clusterPort,
       },
     });
     expect(result).toEqual({ data: 'Cluster created' });
