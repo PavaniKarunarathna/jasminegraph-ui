@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "label": "Node 1",
+      "x": 100,
+      "y": 100,
+      "properties": {
+        "name": "Test Node 1",
+        "type": "entity"
+      }
+    },
+    {
+      "id": "2",
+      "label": "Node 2",
+      "x": 200,
+      "y": 200,
+      "properties": {
+        "name": "Test Node 2",
+        "type": "entity"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "1",
+      "target": "2",
+      "label": "connects_to",
+      "properties": {
+        "weight": 1.0
+      }
+    }
+  ],
+  "metadata": {
+    "nodeCount": 2,
+    "edgeCount": 1,
+    "directed": true
+  }
+}
