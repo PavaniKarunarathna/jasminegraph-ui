@@ -114,11 +114,11 @@ const getGraphList = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('UTF8_FORMAT');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
       // Write the command to the Telnet server
-      tSocket.write(LIST_COMMAND + '\n', 'UTF8_FORMAT', () => {
+      tSocket.write(LIST_COMMAND + '\n', UTF8_FORMAT, () => {
         setTimeout(() => {
           if (commandOutput) {
             console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
@@ -148,11 +148,11 @@ const getClusterProperties = async (req: Request, res: Response) => {
       let commandOutput = '';
 
       tSocket.on('data', (buffer) => {
-        commandOutput += buffer.toString('UTF8_FORMAT');
+        commandOutput += buffer.toString(UTF8_FORMAT);
       });
 
       // Write the command to the Telnet server
-      tSocket.write(PROPERTIES_COMMAND + '\n', 'UTF8_FORMAT', () => {
+      tSocket.write(PROPERTIES_COMMAND + '\n', UTF8_FORMAT, () => {
         setTimeout(() => {
           if (commandOutput) {
               try {
@@ -175,31 +175,97 @@ const getClusterProperties = async (req: Request, res: Response) => {
 const getKafkaStreamDefaults = async (req: Request, res: Response) => {
     const connection = await getClusterDetails(req);
     if (!(connection.host || connection.port)) {
+        console.error('[KafkaDefaults] Cluster connection details missing', {
+            clusterId: req.header('Cluster-ID'),
+            connection,
+        });
         return res.status(404).send(connection);
     }
+
+    const requestStartedAt = Date.now();
+    const clusterId = req.header('Cluster-ID');
+    console.info('[KafkaDefaults] Request started', {
+        clusterId,
+        host: connection.host,
+        port: connection.port,
+    });
+
     try {
         telnetConnection({host: connection.host, port: connection.port})(() => {
             let commandOutput = '';
 
-            tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('UTF8_FORMAT');
-            });
+            const onData = (buffer: Buffer) => {
+                const chunk = buffer.toString(UTF8_FORMAT);
+                commandOutput += chunk;
+                console.debug('[KafkaDefaults] Received socket data chunk', {
+                    clusterId,
+                    chunkLength: chunk.length,
+                    totalLength: commandOutput.length,
+                });
+            };
 
-            tSocket.write(KAFKA_DEFAULTS_COMMAND + '\n', 'UTF8_FORMAT', () => {
+            const onError = (error: Error) => {
+                console.error('[KafkaDefaults] Telnet socket error', {
+                    clusterId,
+                    message: error.message,
+                    stack: error.stack,
+                });
+            };
+
+            const cleanupListeners = () => {
+                if (tSocket?.removeListener) {
+                    tSocket.removeListener('data', onData);
+                    tSocket.removeListener('error', onError);
+                }
+            };
+
+            tSocket.on('data', onData);
+            tSocket.on('error', onError);
+
+            tSocket.write(KAFKA_DEFAULTS_COMMAND + '\n', UTF8_FORMAT, () => {
+                console.info('[KafkaDefaults] Command sent', {
+                    clusterId,
+                    command: KAFKA_DEFAULTS_COMMAND,
+                });
                 setTimeout(() => {
+                    cleanupListeners();
+
                     if (commandOutput) {
                         try {
+                            console.info('[KafkaDefaults] Raw response received', {
+                                clusterId,
+                                elapsedMs: Date.now() - requestStartedAt,
+                                responseLength: commandOutput.length,
+                                preview: commandOutput.slice(0, 500),
+                            });
                             res.status(HTTP[200]).send(JSON.parse(commandOutput));
                         } catch (err) {
+                            console.error('[KafkaDefaults] Failed to parse response JSON', {
+                                clusterId,
+                                elapsedMs: Date.now() - requestStartedAt,
+                                responseLength: commandOutput.length,
+                                rawResponse: commandOutput,
+                                error: err,
+                            });
                             return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
                         }
                     } else {
+                        console.warn('[KafkaDefaults] No response from server before timeout', {
+                            clusterId,
+                            elapsedMs: Date.now() - requestStartedAt,
+                            timeoutMs: TIMEOUT.default,
+                        });
                         res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
                     }
                 }, TIMEOUT.default);
             });
         });
     } catch (err) {
+        console.error('[KafkaDefaults] Unhandled endpoint error', {
+            clusterId,
+            elapsedMs: Date.now() - requestStartedAt,
+            error: err,
+        });
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
@@ -224,7 +290,7 @@ const uploadGraph = async (req: Request, res: Response) => {
             });
 
 
-            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'UTF8_FORMAT', () => {
+            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         try {
@@ -876,7 +942,7 @@ const removeGraph = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('UTF8_FORMAT');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server

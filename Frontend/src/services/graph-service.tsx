@@ -16,6 +16,7 @@ import { IGraphDetails } from "@/types/graph-types";
 import {IKnowledgeGraph} from "@/types/graph-types";
 import {authApi} from "./axios";
 import axios from "axios";
+import { ACCESS_TOKEN } from "@/hooks/useAccessToken";
 
 export async function getGraphList(): Promise<{data: IGraphDetails[]}> {
   try {
