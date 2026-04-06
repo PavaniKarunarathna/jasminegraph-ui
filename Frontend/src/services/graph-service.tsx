@@ -201,6 +201,25 @@ export async function startKafkaStream(
         }
 }
 
+export async function stopKafkaStream(): Promise<{ data: { message: string } }> {
+        try {
+                console.log("📡 Calling stopKafkaStream API endpoint");
+                const result = await authApi({
+                        method: "post",
+                        url: `/backend/graph/kafka/stream/stop`,
+                        headers: {
+                                "Cluster-ID": localStorage.getItem("selectedCluster"),
+                        },
+                }).then((res) => res.data);
+
+                console.log("📨 stopKafkaStream response:", result);
+                return { data: result };
+        } catch (err) {
+                console.error("❌ stopKafkaStream error:", err);
+                return Promise.reject(err);
+        }
+}
+
 export async function getGraphClusterProperties(): Promise<{ data: Record<string, unknown> }> {
     try {
         const result = await authApi({

@@ -12,7 +12,7 @@ limitations under the License.
  */
 
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { InboxOutlined } from "@ant-design/icons";
 import type { UploadProps } from "antd";
 import {
@@ -35,7 +35,8 @@ import axios from "axios";
 import { useActivity } from "@/hooks/useActivity";
 import { useRouter } from "next/navigation";
 import * as Routes from "@/routes/page-routes";
-import { IKafkaStreamStatus } from "@/types/graph-types";
+import { IKafkaStreamStatus, IGraphDetails } from "@/types/graph-types";
+import { getGraphList, getKafkaStreamingDefaults } from "@/services/graph-service";
 
 const KAFKA_LOGO_SRC = "/assets/images/kafka-logo.jpg";
 const HADOOP_LOGO_SRC = "/assets/images/hadoop-logo.jpg";
@@ -51,6 +52,56 @@ export default function GraphUpload() {
   const [fileUrl, setFileUrl] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [graphName, setGraphName] = useState<string>("");
+  
+  // Data for Kafka modal
+  const [graphs, setGraphs] = useState<IGraphDetails[]>([]);
+  const [kafkaDefaults, setKafkaDefaults] = useState({
+    broker: '',
+    groupId: '',
+    offsetReset: 'earliest',
+  });
+  const [dataLoading, setDataLoading] = useState(false);
+
+  // Fetch graphs and Kafka defaults when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      setDataLoading(true);
+      try {
+        const [graphResult, defaultsResult] = await Promise.allSettled([
+          getGraphList(),
+          getKafkaStreamingDefaults()
+        ]);
+
+        if (graphResult.status === 'fulfilled') {
+          setGraphs(graphResult.value.data);
+        } else {
+          console.error('Failed to load graph list:', graphResult.reason);
+          message.error('Failed to load graph list');
+        }
+
+        if (defaultsResult.status === 'fulfilled') {
+          const properties = (defaultsResult.value?.data ?? {}) as Record<string, unknown>;
+          const broker = typeof properties.broker === 'string' ? properties.broker.trim() : '';
+          const groupId = typeof properties.groupId === 'string' ? properties.groupId.trim() : '';
+          const offsetReset = typeof properties.offsetReset === 'string' ? properties.offsetReset.trim() : 'earliest';
+
+          setKafkaDefaults({
+            broker: broker || '',
+            groupId: groupId || '',
+            offsetReset,
+          });
+        } else {
+          console.error('Failed to load Kafka defaults:', defaultsResult.reason);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleFileUpload = (file: RcFile) => {
     setModalOpen(true);
@@ -152,7 +203,15 @@ export default function GraphUpload() {
       <Divider>or</Divider>
       <Row className="external-upload">
         <Col xs={20} sm={16} md={12} lg={12} xl={12}>
-          <div className="upload-card" onClick={() => setKafkaModelOpen(true)}>
+          <div 
+            className={`upload-card ${dataLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={() => !dataLoading && setKafkaModelOpen(true)}
+          >
+            {dataLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
+                <div className="text-sm text-gray-600">Loading...</div>
+              </div>
+            )}
             <Image src={KAFKA_LOGO_SRC} width={200} height={120} alt="Apache Kafka" />
           </div>
         </Col>
@@ -168,6 +227,9 @@ export default function GraphUpload() {
         onStreamStarted={(_payload: IKafkaStreamStatus) => {
           router.push(Routes.SIDE_MENU_ROUTES.graphPanel + Routes.GRAPH_PANEL_ROUTES.extract);
         }}
+        graphs={graphs}
+        kafkaDefaults={kafkaDefaults}
+        dataLoading={dataLoading}
       />
       <HadoopUploadModal
         open={hadoopModalOpen}

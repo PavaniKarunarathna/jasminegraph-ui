@@ -28,7 +28,10 @@ import {
     deleteGraph,
     getKGConstructionMetaData,
     getOnProgressKGConstructionMetaData,
-    stopConstructKG
+    stopConstructKG,
+    stopKafkaStream,
+    startKafkaStream,
+    KafkaStreamRequest
 } from "@/services/graph-service";
 import HadoopKgForm from "@/components/extract-panel/hadoop-kg-form";
 import {LRUCache} from "lru-cache";
@@ -88,7 +91,10 @@ export default function GraphUpload() {
     const [clientId, setClientID] = useState<string>('');
     const [showMeta, setShowMeta] = useState<string>("");
     const [pausedGraphs, setPausedGraphs] = useState<Record<string, boolean>>({});
-    const [kafkaStatus, setKafkaStatus] = useState<IKafkaStreamStatus | null>(null);
+    const [kafkaStatuses, setKafkaStatuses] = useState<IKafkaStreamStatus[]>([]);
+    const [stoppingKafka, setStoppingKafka] = useState<boolean>(false);
+    const [startingKafka, setStartingKafka] = useState<boolean>(false);
+    const [showKafkaDetails, setShowKafkaDetails] = useState<boolean[]>([]);
     const [tpsHistory, setTpsHistory] = useState<Record<string, number[]>>({});
     const getAverageTPS = (graphId: string) => {
         const history = tpsHistory[graphId] || [];
@@ -190,13 +196,15 @@ export default function GraphUpload() {
     }, [uploadBytesGraphs]);
 
 
+    const hasActiveUploads = uploadBytesGraphs?.updates?.length > 0;
+
     useEffect(() => {
-        if(hadoopModalOpen || showUploadSection) return;
+        if (hadoopModalOpen || showUploadSection || !hasActiveUploads) return;
+        if (readyState !== ReadyState.OPEN) return;
 
         setLoading(true);
         const interval = setInterval(() => {
             if (readyState === ReadyState.OPEN) {
-
                 sendJsonMessage({
                     type: "UPBYTES",
                     graphIds : [],
@@ -206,26 +214,27 @@ export default function GraphUpload() {
             }
         }, 5000);
         return () => clearInterval(interval);
-    }, [clientId, readyState, showUploadSection, hadoopModalOpen]);
+    }, [clientId, readyState, showUploadSection, hadoopModalOpen, hasActiveUploads]);
 
     useEffect(() => {
-        const loadKafkaStatus = () => {
-            const raw = localStorage.getItem(KAFKA_STATUS_STORAGE_KEY);
-            if (!raw) {
-                setKafkaStatus(null);
-                return;
-            }
-            try {
-                setKafkaStatus(JSON.parse(raw));
-            } catch {
-                setKafkaStatus(null);
+const loadKafkaStatuses = () => {
+        const raw = localStorage.getItem(KAFKA_STATUS_STORAGE_KEY);
+        if (!raw) {
+            setKafkaStatuses([]);
+            return;
+        }
+        try {
+            const parsed = JSON.parse(raw);
+            setKafkaStatuses(Array.isArray(parsed) ? parsed : parsed ? [parsed] : []);
+        } catch {
+            setKafkaStatuses([]);
             }
         };
 
-        loadKafkaStatus();
+        loadKafkaStatuses();
         const onStorage = (event: StorageEvent) => {
             if (event.key === KAFKA_STATUS_STORAGE_KEY) {
-                loadKafkaStatus();
+                loadKafkaStatuses();
             }
         };
 
@@ -233,6 +242,99 @@ export default function GraphUpload() {
         return () => window.removeEventListener("storage", onStorage);
     }, []);
 
+    useEffect(() => {
+        setShowKafkaDetails(new Array(kafkaStatuses.length).fill(false));
+    }, [kafkaStatuses.length]);
+
+    const handleStopKafkaStream = async () => {
+        // Find all connected streams to stop
+        const connectedStreams = kafkaStatuses.filter(s => s.connected);
+        if (connectedStreams.length === 0) {
+            message.warning("No active Kafka streams to stop.");
+            return;
+        }
+
+        try {
+            setStoppingKafka(true);
+            console.log(`🛑 Stopping ${connectedStreams.length} active Kafka stream(s)...`);
+            
+            const response = await stopKafkaStream();
+            
+            console.log("✅ Stop command response:", response);
+            message.success(response.data?.message || "Kafka streaming stopped successfully");
+            
+            // Mark all connected streams as disconnected, keep disconnected ones as-is
+            const updatedStatuses = kafkaStatuses.map(status => 
+                status.connected 
+                    ? { ...status, connected: false, updatedAt: new Date().toISOString() }
+                    : status
+            );
+            
+            localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(updatedStatuses));
+            setKafkaStatuses(updatedStatuses);
+            
+            console.log("✅ Active Kafka streams marked as disconnected");
+        } catch (error) {
+            console.error("❌ Error stopping Kafka stream:", error);
+            const errorMessage = axios.isAxiosError(error)
+                ? error.response?.data?.message || "Failed to stop Kafka streaming"
+                : "Failed to stop Kafka streaming";
+            message.error(errorMessage);
+        } finally {
+            setStoppingKafka(false);
+        }
+    };
+
+    const handleStartKafkaStream = async (status: IKafkaStreamStatus) => {
+        try {
+            setStartingKafka(true);
+            console.log("▶️ Starting Kafka stream for topic:", status.topicName);
+            
+            // Convert the stored status back to the API request format
+            const payload: KafkaStreamRequest = {
+                isExistingGraph: status.isExistingGraph,
+                graphId: status.graphId,
+                useDefaultGraphId: status.isExistingGraph ? undefined : status.useDefaultGraphId,
+                partitionAlgorithm: status.isExistingGraph ? undefined : status.partitionAlgorithm,
+                isDirected: status.isExistingGraph ? undefined : status.isDirected,
+                useDefaultKafka: status.useDefaultKafka,
+                kafkaConfigPath: status.useDefaultKafka ? undefined : status.kafkaConfigPath,
+                topicName: status.topicName,
+            };
+
+            const response = await startKafkaStream(payload);
+            const resolvedGraphId = response?.data?.graphId || status.graphId;
+            
+            // Update the status to connected
+            const updatedStatus: IKafkaStreamStatus = {
+                ...status,
+                connected: true,
+                graphId: resolvedGraphId,
+                updatedAt: new Date().toISOString(),
+            };
+
+            // Update the specific status in the array
+            const updatedStatuses = kafkaStatuses.map(s => 
+                s.topicName === status.topicName ? updatedStatus : s
+            );
+            
+            localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(updatedStatuses));
+            setKafkaStatuses(updatedStatuses);
+            
+            message.success('Kafka streaming started successfully');
+            console.log("✅ Kafka stream started for topic:", status.topicName);
+        } catch (error) {
+            console.error("❌ Error starting Kafka stream:", error);
+            const errorMessage = axios.isAxiosError(error)
+                ? error.response?.data?.message || "Failed to start Kafka streaming"
+                : "Failed to start Kafka streaming";
+            message.error(errorMessage);
+        } finally {
+            setStartingKafka(false);
+        }
+    };
+
+    const showExtractUploadPanel = showUploadSection;
     const onSearch = (value: string) => {
         const filteredClusters = graphs.filter((cluster) => cluster.name.toLowerCase().includes(value.toLowerCase()));
     };
@@ -251,60 +353,90 @@ export default function GraphUpload() {
               }
             />
 
-            <Card style={{ marginBottom: "20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <Text strong>Kafka Stream</Text>
-                        <div style={{ marginTop: "8px", marginBottom: "12px" }}>
-                            <Tag color={kafkaStatus?.connected ? "success" : "default"}>
-                                {kafkaStatus?.connected ? "Connected" : "Disconnected"}
-                            </Tag>
+            {kafkaStatuses.map((status, index) => (
+                <Card key={index} style={{ marginBottom: "20px" }} bodyStyle={{ padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+                        <Text strong style={{ fontSize: 18 }}>Kafka Stream: {status.topicName || "No Topic"}</Text>
+                        <Button
+                            type="text"
+                            icon={showKafkaDetails[index] ? <UpOutlined /> : <DownOutlined />}
+                            onClick={() => setShowKafkaDetails((prev) => {
+                                const newDetails = [...prev];
+                                newDetails[index] = !newDetails[index];
+                                return newDetails;
+                            })}
+                        />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ marginTop: 12, marginBottom: 12 }}>
+                                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                    <span><Text strong>Graph ID:</Text> {status.graphId || "Default"}</span>
+                                    <span><Text strong>Source:</Text> {status.useDefaultKafka ? "Server Default" : "Custom Config"}</span>
+                                    <span><Text strong>Topic:</Text> {status.topicName || "—"}</span>
+                                </div>
+                            </div>
                         </div>
-                        {kafkaStatus?.connected ? (
-                            <Descriptions bordered size="small" column={1} style={{ marginTop: "8px" }}>
-                                <Descriptions.Item label="Topic">{kafkaStatus.topicName}</Descriptions.Item>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                            <Tag color={status.connected ? "success" : "error"}>
+                                {status.connected ? "Connected" : "Disconnected"}
+                            </Tag>
+                            {status.connected ? (
+                                <Button
+                                    type="primary"
+                                    danger
+                                    onClick={handleStopKafkaStream}
+                                    loading={stoppingKafka}
+                                    size="small"
+                                >
+                                    Stop Streaming
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="primary"
+                                    onClick={() => handleStartKafkaStream(status)}
+                                    loading={startingKafka}
+                                    size="small"
+                                >
+                                    Start Streaming
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {showKafkaDetails[index] && (
+                        <div style={{ marginTop: 16 }}>
+                            <Descriptions bordered size="small" column={1} style={{ marginTop: 8 }}>
                                 <Descriptions.Item label="Graph Mode">
-                                    {kafkaStatus.isExistingGraph ? "Existing Graph" : "New Graph"}
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Graph ID">
-                                    {kafkaStatus.graphId || "Server default graph ID"}
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Graph Name">
-                                    {kafkaStatus.graphName || "New graph will be created"}
+                                    {status.isExistingGraph ? "Existing Graph" : "New Graph"}
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Partition Algorithm">
-                                    {kafkaStatus.partitionAlgorithmLabel || "Not applicable"}
+                                    {status.partitionAlgorithmLabel || "Not applicable"}
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Graph Type">
-                                    {kafkaStatus.graphTypeLabel || "Not applicable"}
+                                    {status.graphTypeLabel || "Not applicable"}
                                 </Descriptions.Item>
-                                <Descriptions.Item label="Kafka Source">
-                                    {kafkaStatus.useDefaultKafka ? "Server Default" : "Custom Config File"}
-                                </Descriptions.Item>
-                                {kafkaStatus.useDefaultKafka ? (
+                                {status.useDefaultKafka ? (
                                     <>
-                                        <Descriptions.Item label="Kafka Broker">{kafkaStatus.kafkaBroker || "Default from server config"}</Descriptions.Item>
-                                        <Descriptions.Item label="Consumer Group ID">{kafkaStatus.groupId || "Default from server config"}</Descriptions.Item>
-                                        <Descriptions.Item label="Offset Reset">{kafkaStatus.offsetReset || "earliest"}</Descriptions.Item>
+                                        <Descriptions.Item label="Kafka Broker">{status.kafkaBroker || "Default from server config"}</Descriptions.Item>
+                                        <Descriptions.Item label="Consumer Group ID">{status.groupId || "Default from server config"}</Descriptions.Item>
+                                        <Descriptions.Item label="Offset Reset">{status.offsetReset || "earliest"}</Descriptions.Item>
                                     </>
                                 ) : (
-                                    <Descriptions.Item label="Kafka Config Path">{kafkaStatus.kafkaConfigPath}</Descriptions.Item>
+                                    <Descriptions.Item label="Kafka Config Path">{status.kafkaConfigPath}</Descriptions.Item>
                                 )}
-                                {kafkaStatus.updatedAt && (
-                                    <Descriptions.Item label="Connected At">{new Date(kafkaStatus.updatedAt).toLocaleString()}</Descriptions.Item>
+                                {status.updatedAt && (
+                                    <Descriptions.Item label="Connected At">{new Date(status.updatedAt).toLocaleString()}</Descriptions.Item>
                                 )}
                             </Descriptions>
-                        ) : (
-                            <div>No active Kafka stream configuration is stored yet.</div>
-                        )}
-                    </div>
-                    <Button disabled>
-                        {kafkaStatus?.connected ? "Connected" : "Not Connected"}
-                    </Button>
-                </div>
-            </Card>
+                        </div>
+                    )}
+                </Card>
+            ))}
 
-            {(showUploadSection || (uploadBytesGraphs && uploadBytesGraphs.updates.length === 0)) &&
+
+
+            {showExtractUploadPanel &&
                 <div className="graph-upload-panel">
                     <Typography.Title level={4} style={{ margin: "20px 0px" }}>
                         Extract Graph Data:
@@ -342,16 +474,21 @@ export default function GraphUpload() {
                     setHadoopModelOpen(false)}}/>
                 }
             </Modal>
-            { !showUploadSection && uploadBytesGraphs.updates.length > 0 &&
+
+            {!showExtractUploadPanel && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px" }}>
+                </div>
+            )}
+
+            { !showExtractUploadPanel && hasActiveUploads &&
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
                     <Typography><Title level={2}>On Progress Extraction</Title></Typography>
                     <div style={{ gap: "10px", display: "flex" }}>
                         <Search placeholder="search..." allowClear size="large" onSearch={onSearch} style={{ width: 300 }} />
-                        <Button size="large" onClick={() => setShowUploadSection(true)}>Extract New Graph</Button>
                     </div>
                 </div>}
 
-            {!showUploadSection && uploadBytesGraphs && uploadBytesGraphs.updates.length > 0 &&
+            {!showExtractUploadPanel && hasActiveUploads &&
                 uploadBytesGraphs.updates.map((upload: IKnowledgeGraph, index) => upload.percentage <= 100 && (
                     <Card
                         key={index}

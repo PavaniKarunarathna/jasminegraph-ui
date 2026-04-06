@@ -14,7 +14,7 @@ limitations under the License.
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Descriptions, Divider, Form, Input, Modal, Radio, Select, Space, Tag, message } from 'antd';
-import { getGraphList, startKafkaStream, KafkaStreamRequest, getKafkaStreamingDefaults } from '@/services/graph-service';
+import { startKafkaStream, KafkaStreamRequest } from '@/services/graph-service';
 import { IGraphDetails, IKafkaStreamStatus } from '@/types/graph-types';
 import axios from 'axios';
 
@@ -25,21 +25,46 @@ type Props = {
   open: boolean;
   setOpen: (open: boolean) => void;
   onStreamStarted?: (payload: IKafkaStreamStatus) => void;
+  graphs?: IGraphDetails[];
+  kafkaDefaults?: {
+    broker: string;
+    groupId: string;
+    offsetReset: string;
+  };
+  dataLoading?: boolean;
 }
 
-const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
+const KafkaUploadModal = ({ 
+  open, 
+  setOpen, 
+  onStreamStarted, 
+  graphs: graphsProp = [], 
+  kafkaDefaults: kafkaDefaultsProp,
+  dataLoading = false 
+}: Props) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'configure' | 'confirm'>('configure');
   const [pendingStatus, setPendingStatus] = useState<IKafkaStreamStatus | null>(null);
-  const [graphs, setGraphs] = useState<{ value: string; label: string }[]>([]);
-  const [graphsData, setGraphsData] = useState<IGraphDetails[]>([]);
+  
+  // Use props for graphs data
+  const graphsData = graphsProp;
+  const graphs = useMemo(() => 
+    graphsData.map((graph) => ({
+      value: String(graph.idgraph),
+      label: `${graph.name} (ID: ${graph.idgraph})`,
+    })), 
+    [graphsData]
+  );
+  
   const [selectedGraphDetails, setSelectedGraphDetails] = useState<IGraphDetails | null>(null);
-  const [kafkaDefaults, setKafkaDefaults] = useState({
+  
+  // Use props for kafka defaults, with fallback
+  const kafkaDefaults = kafkaDefaultsProp || {
     broker: DEFAULT_KAFKA_LABEL,
     groupId: DEFAULT_KAFKA_LABEL,
     offsetReset: 'earliest',
-  });
+  };
 
   const isExistingGraph = Form.useWatch('isExistingGraph', form);
   const useDefaultGraphId = Form.useWatch('useDefaultGraphId', form);
@@ -63,8 +88,35 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
   };
 
   const getPartitionLabel = (value?: string | number) => {
-    const normalized = value === undefined || value === null ? '' : String(value);
-    return partitionOptions.find((option) => option.value === normalized)?.label || 'Unknown';
+    if (value === undefined || value === null || value === '') {
+      return 'Unknown';
+    }
+    
+    const normalized = String(value).toLowerCase().trim();
+    
+    // Try exact match first
+    const exactMatch = partitionOptions.find((option) => option.value === normalized);
+    if (exactMatch) return exactMatch.label;
+    
+    // Try partial matches for common algorithm names
+    if (normalized.includes('hash') || normalized === '1') {
+      return 'Hash partitioning';
+    }
+    if (normalized.includes('fennel') || normalized === '2') {
+      return 'Fennel partitioning';
+    }
+    if (normalized.includes('ldg') || normalized === '3') {
+      return 'LDG partitioning';
+    }
+    
+    // If it's a number, try to map it
+    const numValue = parseInt(normalized);
+    if (!isNaN(numValue)) {
+      const option = partitionOptions.find((option) => option.value === String(numValue));
+      if (option) return option.label;
+    }
+    
+    return 'Unknown';
   };
 
   const getGraphTypeLabel = (value?: string | boolean | number) => (
@@ -100,7 +152,7 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
           : normalizedGraphId,
       graphName: values.isExistingGraph ? selectedGraph?.name : undefined,
       isExistingGraph: Boolean(values.isExistingGraph),
-      useDefaultGraphId: Boolean(values.useDefaultGraphId),
+      useDefaultGraphId: values.isExistingGraph ? Boolean(values.useDefaultGraphId) : true,
       partitionAlgorithm: values.isExistingGraph
         ? selectedGraph?.id_algorithm === undefined || selectedGraph?.id_algorithm === null
           ? undefined
@@ -126,36 +178,7 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
   useEffect(() => {
     if (!open) return;
     resetModalState();
-
-    Promise.all([getGraphList(), getKafkaStreamingDefaults()])
-      .then(([graphRes, propertyRes]) => {
-        setGraphsData(graphRes.data);
-        const options = graphRes.data.map((graph) => ({
-          value: String(graph.idgraph),
-          label: `${graph.name} (ID: ${graph.idgraph})`,
-        }));
-        setGraphs(options);
-
-        const properties = (propertyRes?.data ?? {}) as Record<string, unknown>;
-        const broker = typeof properties.broker === 'string' ? properties.broker.trim() : '';
-        const groupId = typeof properties.groupId === 'string' ? properties.groupId.trim() : '';
-        const offsetReset = typeof properties.offsetReset === 'string' ? properties.offsetReset.trim() : '';
-
-        setKafkaDefaults({
-          broker: broker || DEFAULT_KAFKA_LABEL,
-          groupId: groupId || DEFAULT_KAFKA_LABEL,
-          offsetReset: offsetReset || 'earliest',
-        });
-      })
-      .catch(() => {
-        message.error('Failed to load graph list and Kafka defaults');
-        setKafkaDefaults({
-          broker: DEFAULT_KAFKA_LABEL,
-          groupId: DEFAULT_KAFKA_LABEL,
-          offsetReset: 'earliest',
-        });
-      });
-  }, [form, open]);
+  }, [open]);
 
   useEffect(() => {
     if (isExistingGraph && selectedGraphId) {
@@ -165,6 +188,20 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
       setSelectedGraphDetails(null);
     }
   }, [selectedGraphId, isExistingGraph, graphsData]);
+
+  // Clear direction selection when switching to existing graph mode
+  useEffect(() => {
+    if (isExistingGraph) {
+      form.setFieldsValue({ isDirected: undefined });
+    }
+  }, [isExistingGraph, form]);
+
+  // Set useDefaultGraphId for new graphs
+  useEffect(() => {
+    if (!isExistingGraph) {
+      form.setFieldsValue({ useDefaultGraphId: true });
+    }
+  }, [isExistingGraph, form]);
 
   const handleCancel = () => {
     resetModalState();
@@ -183,12 +220,11 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
 
   const handleSubmit = async () => {
     try {
-      const values = await form.validateFields();
-      const streamStatus = buildStreamStatus(values);
+      const streamStatus = pendingStatus ?? buildStreamStatus(await form.validateFields());
       const payload: KafkaStreamRequest = {
         isExistingGraph: streamStatus.isExistingGraph,
         graphId: streamStatus.graphId,
-        useDefaultGraphId: streamStatus.useDefaultGraphId,
+        useDefaultGraphId: streamStatus.isExistingGraph ? undefined : streamStatus.useDefaultGraphId,
         partitionAlgorithm: streamStatus.isExistingGraph ? undefined : streamStatus.partitionAlgorithm,
         isDirected: streamStatus.isExistingGraph ? undefined : streamStatus.isDirected,
         useDefaultKafka: streamStatus.useDefaultKafka,
@@ -206,7 +242,7 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
         updatedAt: new Date().toISOString(),
       };
 
-      message.success('Kafka streaming started');
+      message.success('Kafka streaming started successfully. Redirecting to Extract tab');
       localStorage.setItem(
         KAFKA_STATUS_STORAGE_KEY,
         JSON.stringify(resolvedStatus)
@@ -260,37 +296,12 @@ const KafkaUploadModal = ({ open, setOpen, onStreamStarted }: Props) => {
               >
                 <Select options={graphs} placeholder="Select graph" />
               </Form.Item>
-              {selectedGraphDetails && (
-                <>
-                  <Form.Item label="Partition Algorithm">
-                    <Input value={getPartitionLabel(selectedGraphDetails.id_algorithm)} disabled />
-                  </Form.Item>
-                  <Form.Item label="Graph Type">
-                    <Input value={getGraphTypeLabel(selectedGraphDetails.is_directed)} disabled />
-                  </Form.Item>
-                </>
-              )}
             </>
           ) : (
             <>
-              <Form.Item label="Use Default Graph ID" name="useDefaultGraphId">
-                <Radio.Group>
-                  <Radio value={true}>Yes</Radio>
-                  <Radio value={false}>No</Radio>
-                </Radio.Group>
+              <Form.Item name="useDefaultGraphId" hidden>
+                <Input />
               </Form.Item>
-              {!useDefaultGraphId && (
-                <Form.Item
-                  label="Custom Graph ID"
-                  name="graphId"
-                  rules={[
-                    { required: true, message: 'Enter a graph ID' },
-                    { pattern: /^\d+$/, message: 'Graph ID must be numeric' },
-                  ]}
-                >
-                  <Input placeholder="e.g. 5" />
-                </Form.Item>
-              )}
               <Form.Item
                 label="Partitioning Algorithm"
                 name="partitionAlgorithm"

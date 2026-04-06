@@ -16,7 +16,7 @@ import {
     getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties,
     getDataFromHadoop, constructKG, stopConstructKG,
     updateKGConstructionMetaByClusterId, getKGConstructionMetaByGraphId, getOnProgressKGConstructionMeta, validateHDFS,
-  constructKGTXT, startKafkaStream, getKafkaStreamDefaults } from '../controllers/graph.controller';
+  constructKGTXT, startKafkaStream, stopKafkaStream, getKafkaStreamDefaults } from '../controllers/graph.controller';
 import multer from 'multer';
 import path from 'path';
 import fs from "fs";
@@ -57,7 +57,7 @@ const graphRoute = () => {
   router.get('/list', getGraphList);
   router.post('/upload', upload.single("file"), uploadGraph);
   router.post('/kafka/stream', startKafkaStream);
-  router.get('/kafka/defaults', getKafkaStreamDefaults);
+  router.post('/kafka/stream/stop', stopKafkaStream);
   router.delete('/:id', removeGraph);
   router.post('/analyze/trianglecount', triangleCount)
   router.get('/visualize', getGraphVisualization);

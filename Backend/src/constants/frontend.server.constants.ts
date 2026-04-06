@@ -23,11 +23,10 @@ export const SEMANTIC_BEAM_SEARCH_COMMAND = "sbs";
 export const INDEGREE_COMMAND = "idd";
 export const OUTDEGREE_COMMAND = "odd";
 export const PROPERTIES_COMMAND = "prp";
-export const KAFKA_DEFAULTS_COMMAND = "kfkdf";
 export const UPLOAD_FROM_HDFS = "adhdfs";
 export const CONSTRUCT_KG_COMMAND = "constructkg";
 export const CONSTRUCT_KG_COMMAND_LOCAL = "constructkgl";
 export const STOP_CONSTRUCT_KG_COMMAND = "stop-constructkg";
 export const KAFKA_STREAM_COMMAND = "adstrmk";
-
+export const STOP_KAFKA_STREAM_COMMAND = "stopstrm";
 export const NO_OF_FIELDS_IN_UPBYTES_CMD = 14;
