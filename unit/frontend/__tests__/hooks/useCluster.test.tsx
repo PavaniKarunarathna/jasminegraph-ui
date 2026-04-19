@@ -11,10 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
-import { SELECTED_CLUSTER } from '../../../../Frontend/src/hooks/useCluster';
+import { SELECTED_CLUSTER } from '@/hooks/useCluster';
 
 describe('useCluster', () => {
   it('exports selected cluster key constant', () => {

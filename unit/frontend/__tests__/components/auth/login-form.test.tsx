@@ -11,26 +11,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LoginForm from "../../../../../Frontend/src/components/auth/login-form";
-import { userLogin } from "../../../../../Frontend/src/services/auth-service";
-import { set_Is_User_Authenticated } from "../../../../../Frontend/src/redux/features/authData";
-import useAccessToken from "../../../../../Frontend/src/hooks/useAccessToken";
+import LoginForm from "@/components/auth/login-form";
+import { userLogin } from "@/services/auth-service";
+import { set_Is_User_Authenticated } from "@/redux/features/authData";
+import useAccessToken from "@/hooks/useAccessToken";
 
-jest.mock("../../../../../Frontend/src/services/auth-service", () => ({
+jest.mock("@/services/auth-service", () => ({
 	userLogin: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/redux/features/authData", () => ({
+jest.mock("@/redux/features/authData", () => ({
 	set_Is_User_Authenticated: jest.fn((value: boolean) => ({ type: "auth/set", payload: value })),
 }));
 
-jest.mock("../../../../../Frontend/src/hooks/useAccessToken", () => jest.fn());
+jest.mock("@/hooks/useAccessToken", () => jest.fn());
 
 const mockPush = jest.fn();
 const mockDispatch = jest.fn();

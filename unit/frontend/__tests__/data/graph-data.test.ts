@@ -11,13 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import {
   GRAPH_TYPES,
   GRAPH_VISUALIZATION_TYPE,
-} from "../../../../Frontend/src/data/graph-data";
+} from "@/data/graph-data";
 
 describe("graph-data", () => {
   it("exports graph type constants", () => {

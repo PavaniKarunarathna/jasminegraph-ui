@@ -11,13 +11,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-
 import queryDataReducer, {
   add_query_result,
   clear_result,
   clear_visualize_data,
-} from '../../../../../Frontend/src/redux/features/queryData';
+} from '@/redux/features/queryData';
 
 const initialState = {
   messagePool: {},

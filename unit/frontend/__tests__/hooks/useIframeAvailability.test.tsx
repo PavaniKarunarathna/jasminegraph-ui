@@ -11,11 +11,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import { renderHook, act } from '@testing-library/react';
-import { useIframeAvailability } from '../../../../Frontend/src/hooks/useIframeAvailability';
+import { useIframeAvailability } from '@/hooks/useIframeAvailability';
 
 describe('useIframeAvailability', () => {
   beforeEach(() => {

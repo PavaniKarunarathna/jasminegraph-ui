@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 const mockAuthApi = jest.fn();
 
-jest.mock('../../../../Frontend/src/services/axios', () => ({
+jest.mock('@/services/axios', () => ({
   __esModule: true,
   authApi: (config: any) => mockAuthApi(config),
 }));
@@ -31,7 +28,7 @@ import {
   addUserToCluster,
   removeUserFromCluster,
   getClusterProperties,
-} from '../../../../Frontend/src/services/cluster-service';
+} from '@/services/cluster-service';
 
 describe('cluster-service', () => {
   const clusterId = String(mockClusterFixture.id);

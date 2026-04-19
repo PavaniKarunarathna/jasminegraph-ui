@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import MainWrapper from '../../../../Frontend/src/layouts/main-wrapper';
+import MainWrapper from '@/layouts/main-wrapper';
 
 describe('MainWrapper', () => {
   it('renders children as-is', () => {

@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import Instance from "../../../../../../../Frontend/src/app/clusters/[id]/instance/page";
+import Instance from "@/app/clusters/[id]/instance/page";
 
 jest.mock("antd", () => {
   const Input = ({ children }: any) => <div>{children}</div>;

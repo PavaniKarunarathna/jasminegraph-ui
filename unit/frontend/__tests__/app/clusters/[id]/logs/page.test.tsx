@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import Logs from "../../../../../../../Frontend/src/app/clusters/[id]/logs/page";
+import Logs from "@/app/clusters/[id]/logs/page";
 
 describe("Logs Page", () => {
   it("renders logs page", () => {

@@ -11,21 +11,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import UserRegistrationForm from "../../../../../Frontend/src/components/cluster-details/user-registration-form";
-import { registerUser } from "../../../../../Frontend/src/services/auth-service";
-import { useActivity } from "../../../../../Frontend/src/hooks/useActivity";
+import UserRegistrationForm from "@/components/cluster-details/user-registration-form";
+import { registerUser } from "@/services/auth-service";
+import { useActivity } from "@/hooks/useActivity";
 
-jest.mock("../../../../../Frontend/src/services/auth-service", () => ({
+jest.mock("@/services/auth-service", () => ({
   registerUser: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
   useActivity: jest.fn(),
 }));
 

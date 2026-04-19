@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import KafkaUploadModal from '../../../../../Frontend/src/components/graph-panel/kafka-upload-modal';
+import KafkaUploadModal from '@/components/graph-panel/kafka-upload-modal';
 
 jest.mock('antd', () => {
   const React = require('react');

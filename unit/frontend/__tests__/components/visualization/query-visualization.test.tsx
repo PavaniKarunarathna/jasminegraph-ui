@@ -11,13 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { useAppSelector } from "@/redux/hook";
-import QueryVisualization from "../../../../../Frontend/src/components/visualization/query-visualization";
+import QueryVisualization from "@/components/visualization/query-visualization";
 import { Network, DataSet } from "vis-network/standalone";
 
 jest.mock(

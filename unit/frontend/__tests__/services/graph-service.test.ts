@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 const mockAuthApi = jest.fn();
 const mockIsAxiosError = jest.fn((error) => Boolean(error?.isAxiosError));
 
@@ -34,7 +31,7 @@ import {
   constructKG,
   stopConstructKG,
   deleteGraph,
-} from '../../../../Frontend/src/services/graph-service';
+} from '@/services/graph-service';
 import mockGraphData from '../../fixtures/mock-graph-data.json';
 import mockClusterFixture from '../../fixtures/mock-cluster.json';
 

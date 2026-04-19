@@ -11,22 +11,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AdminProfile from '../../../../../Frontend/src/components/setup/admin-profile';
+import AdminProfile from '@/components/setup/admin-profile';
 import {
   getUserDataByToken,
   registerAdmin,
   userLogin,
-} from '../../../../../Frontend/src/services/auth-service';
-import useAccessToken from '../../../../../Frontend/src/hooks/useAccessToken';
-import { set_User_Data } from '../../../../../Frontend/src/redux/features/authData';
+} from '@/services/auth-service';
+import useAccessToken from '@/hooks/useAccessToken';
+import { set_User_Data } from '@/redux/features/authData';
 
-jest.mock('../../../../../Frontend/src/services/auth-service', () => ({
+jest.mock('@/services/auth-service', () => ({
   registerAdmin: jest.fn(),
   userLogin: jest.fn(),
   getUserDataByToken: jest.fn(),
@@ -34,7 +31,7 @@ jest.mock('../../../../../Frontend/src/services/auth-service', () => ({
 
 const mockSetSrvAccessToken = jest.fn();
 const mockSetSrvRefreshToken = jest.fn();
-jest.mock('../../../../../Frontend/src/hooks/useAccessToken', () => ({
+jest.mock('@/hooks/useAccessToken', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
@@ -44,7 +41,7 @@ jest.mock('react-redux', () => ({
   useDispatch: jest.fn(() => mockDispatch),
 }), { virtual: true });
 
-jest.mock('../../../../../Frontend/src/redux/features/authData', () => ({
+jest.mock('@/redux/features/authData', () => ({
   set_User_Data: jest.fn((payload: any) => ({ type: 'auth/set_User_Data', payload })),
 }));
 

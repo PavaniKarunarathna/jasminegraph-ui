@@ -11,15 +11,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import {
   AnalyzeOptions,
   Analyzers,
   InputTypes,
   triangleCountAnalyzer,
-} from "../../../../Frontend/src/data/analyze-data";
+} from "@/data/analyze-data";
 
 describe("analyze-data", () => {
   it("exports the triangle count option id", () => {

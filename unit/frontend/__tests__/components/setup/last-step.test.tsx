@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import FinishStep from '../../../../../Frontend/src/components/setup/last-step';
+import FinishStep from '@/components/setup/last-step';
 import { useRouter } from 'next/navigation';
 
 jest.mock('next/navigation', () => ({

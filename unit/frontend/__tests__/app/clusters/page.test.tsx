@@ -11,15 +11,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import ClustersPage from "../../../../../Frontend/src/app/clusters/page";
-import { getAllClusters, getClustersStatusByIds } from "../../../../../Frontend/src/services/cluster-service";
+import ClustersPage from "@/app/clusters/page";
+import { getAllClusters, getClustersStatusByIds } from "@/services/cluster-service";
 import { useRouter } from "next/navigation";
-import { useAppSelector } from "../../../../../Frontend/src/redux/hook";
+import { useAppSelector } from "@/redux/hook";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
@@ -33,16 +30,16 @@ jest.mock(
   { virtual: true }
 );
 
-jest.mock("../../../../../Frontend/src/redux/hook", () => ({
+jest.mock("@/redux/hook", () => ({
   useAppSelector: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/services/cluster-service", () => ({
+jest.mock("@/services/cluster-service", () => ({
   getAllClusters: jest.fn(),
   getClustersStatusByIds: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/hooks/useAccessToken", () => ({
+jest.mock("@/hooks/useAccessToken", () => ({
   __esModule: true,
   default: () => ({
     getSrvAccessToken: () => "token",
@@ -51,23 +48,23 @@ jest.mock("../../../../../Frontend/src/hooks/useAccessToken", () => ({
   }),
 }));
 
-jest.mock("../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
   useActivity: () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
 
-jest.mock("../../../../../Frontend/src/layouts/page-wrapper", () => ({
+jest.mock("@/layouts/page-wrapper", () => ({
   __esModule: true,
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-jest.mock("../../../../../Frontend/src/components/common/ActivityPanel", () => ({
+jest.mock("@/components/common/ActivityPanel", () => ({
   __esModule: true,
   default: () => <div>Activity Panel</div>,
 }));
 
-jest.mock("../../../../../Frontend/src/components/cluster-details/cluster-registration-form", () => ({
+jest.mock("@/components/cluster-details/cluster-registration-form", () => ({
   __esModule: true,
   default: () => <div>Cluster Registration Form</div>,
 }));

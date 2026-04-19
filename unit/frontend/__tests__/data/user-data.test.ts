@@ -11,10 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
-import { USER_ROLES } from "../../../../Frontend/src/data/user-data";
+import { USER_ROLES } from "@/data/user-data";
 
 describe("user-data", () => {
   it("exports admin and viewer roles", () => {

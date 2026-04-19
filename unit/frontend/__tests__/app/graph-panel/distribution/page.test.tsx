@@ -11,31 +11,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import GraphDistribution from "../../../../../../Frontend/src/app/graph-panel/distribution/page";
-import { getGraphList } from "../../../../../../Frontend/src/services/graph-service";
+import GraphDistribution from "@/app/graph-panel/distribution/page";
+import { getGraphList } from "@/services/graph-service";
 
 jest.mock("react-redux", () => ({
   useDispatch: () => jest.fn(),
 }), { virtual: true });
 
-jest.mock("../../../../../../Frontend/src/redux/hook", () => ({
+jest.mock("@/redux/hook", () => ({
   useAppDispatch: () => jest.fn(),
 }));
 
-jest.mock("../../../../../../Frontend/src/services/graph-service", () => ({
+jest.mock("@/services/graph-service", () => ({
   getGraphList: jest.fn(),
 }));
 
-jest.mock("../../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
   useActivity: () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
+
+jest.mock('@ant-design/icons', () => ({
+  LoadingOutlined: () => <span data-testid="icon-loading" />,
+}), { virtual: true });
 
 jest.mock(
   "react-use-websocket",
@@ -58,12 +59,12 @@ jest.mock(
   { virtual: true }
 );
 
-jest.mock("../../../../../../Frontend/src/components/visualization/graph-visualization", () => ({
+jest.mock("@/components/visualization/graph-visualization", () => ({
   __esModule: true,
   default: () => <div>Graph Visualization</div>,
 }));
 
-jest.mock("../../../../../../Frontend/src/components/visualization/indegree-visualization", () => ({
+jest.mock("@/components/visualization/indegree-visualization", () => ({
   __esModule: true,
   default: () => <div>InDegree Visualization</div>,
 }));

@@ -11,25 +11,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import GraphUpload from "../../../../../Frontend/src/app/graph-panel/page";
+import GraphUpload from "@/app/graph-panel/page";
 
-jest.mock("../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
   useActivity: () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
 
-jest.mock("../../../../../Frontend/src/components/graph-panel/kafka-upload-modal", () => ({
+jest.mock("@/components/graph-panel/kafka-upload-modal", () => ({
   __esModule: true,
   default: () => <div>Kafka Upload Modal</div>,
 }));
 
-jest.mock("../../../../../Frontend/src/components/graph-panel/hadoop-upload-modal", () => ({
+jest.mock("@/components/graph-panel/hadoop-upload-modal", () => ({
   __esModule: true,
   default: () => <div>Hadoop Upload Modal</div>,
 }));

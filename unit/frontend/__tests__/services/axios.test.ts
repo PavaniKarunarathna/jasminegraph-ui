@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 const mockAuthApiInstance = {
   interceptors: {
     request: { use: jest.fn() },
@@ -50,7 +47,7 @@ describe('axios service', () => {
   });
 
   it('creates authApi and api instances with expected base headers', async () => {
-    await import('../../../../Frontend/src/services/axios');
+    await import('@/services/axios');
 
     expect(mockAxios.create).toHaveBeenNthCalledWith(1, {
       headers: {
@@ -69,7 +66,7 @@ describe('axios service', () => {
   });
 
   it('request interceptor adds Authorization header from session storage AUTH token', async () => {
-    await import('../../../../Frontend/src/services/axios');
+    await import('@/services/axios');
     sessionStorage.setItem('AUTH', JSON.stringify({ access_token: 'session-token' }));
 
     const requestInterceptor = (mockApiInstance.interceptors.request.use as jest.Mock).mock.calls[0][0];
@@ -79,7 +76,7 @@ describe('axios service', () => {
   });
 
   it('response interceptor refreshes token on 401 and retries original request', async () => {
-    const axiosModule = await import('../../../../Frontend/src/services/axios');
+    const axiosModule = await import('@/services/axios');
     localStorage.setItem('auth.srv.refresh.token', 'refresh-token');
     mockAxios.post.mockResolvedValueOnce({
       data: { accessToken: 'new-access', refreshToken: 'new-refresh' },

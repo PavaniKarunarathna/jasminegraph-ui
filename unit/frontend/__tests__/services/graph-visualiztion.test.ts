@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 const mockAuthApi = jest.fn();
 
-jest.mock('../../../../Frontend/src/services/axios', () => ({
+jest.mock('@/services/axios', () => ({
   __esModule: true,
   authApi: (config: any) => mockAuthApi(config),
 }));
@@ -25,7 +22,7 @@ import mockGraphData from '../../fixtures/mock-graph-data.json';
 import {
   getGraphVizualization,
   getGraphDegreeData,
-} from '../../../../Frontend/src/services/graph-visualiztion';
+} from '@/services/graph-visualiztion';
 
 describe('graph-visualiztion service', () => {
   beforeEach(() => {

@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -71,7 +68,7 @@ jest.mock('@/redux/features/authData', () => ({
   set_Clear_User_Data: () => mockSetClearUserData(),
 }));
 
-import MainHeader from '../../../../../Frontend/src/layouts/header/header';
+import MainHeader from '@/layouts/header/header';
 
 describe('Header', () => {
   beforeEach(() => {

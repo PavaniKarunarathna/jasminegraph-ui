@@ -11,35 +11,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import AccessManagement from "../../../../../../../Frontend/src/app/clusters/[id]/access-management/page";
-import { getCluster, addUserToCluster, removeUserFromCluster } from "../../../../../../../Frontend/src/services/cluster-service";
-import { getAllUsers } from "../../../../../../../Frontend/src/services/user-service";
-import { useAppSelector } from "../../../../../../../Frontend/src/redux/hook";
+import AccessManagement from "@/app/clusters/[id]/access-management/page";
+import { getCluster, addUserToCluster, removeUserFromCluster } from "@/services/cluster-service";
+import { getAllUsers } from "@/services/user-service";
+import { useAppSelector } from "@/redux/hook";
 
 jest.mock("react-redux", () => ({
   useDispatch: () => jest.fn(),
 }), { virtual: true });
 
-jest.mock("../../../../../../../Frontend/src/redux/hook", () => ({
+jest.mock("@/redux/hook", () => ({
   useAppSelector: jest.fn(),
 }));
 
-jest.mock("../../../../../../../Frontend/src/services/cluster-service", () => ({
+jest.mock("@/services/cluster-service", () => ({
   getCluster: jest.fn(),
   addUserToCluster: jest.fn(),
   removeUserFromCluster: jest.fn(),
 }));
 
-jest.mock("../../../../../../../Frontend/src/services/user-service", () => ({
+jest.mock("@/services/user-service", () => ({
   getAllUsers: jest.fn(),
 }));
 
-jest.mock("../../../../../../../Frontend/src/hooks/useAccessToken", () => ({
+jest.mock("@/hooks/useAccessToken", () => ({
   __esModule: true,
   default: () => ({
     getSrvAccessToken: () => "token",
@@ -47,6 +44,9 @@ jest.mock("../../../../../../../Frontend/src/hooks/useAccessToken", () => ({
 }));
 
 jest.mock("antd", () => {
+  const Input = ({ children }: any) => <div>{children}</div>;
+  Input.Search = ({ placeholder }: any) => <input placeholder={placeholder} aria-label="search-input" />;
+
   return {
     Table: ({ columns, dataSource }: any) => (
       <div>
@@ -76,14 +76,10 @@ jest.mock("antd", () => {
         {children}
       </div>
     ),
-    Input: ({ children }: any) => <div>{children}</div>,
+    Input,
     Space: ({ children }: any) => <div>{children}</div>,
   };
 }, { virtual: true });
-
-// Add Input.Search component
-const antd = require("antd");
-antd.Input.Search = ({ placeholder }: any) => <input placeholder={placeholder} aria-label="search-input" />;
 
 describe("Access Management Page", () => {
   const mockedUseAppSelector = useAppSelector as jest.Mock;

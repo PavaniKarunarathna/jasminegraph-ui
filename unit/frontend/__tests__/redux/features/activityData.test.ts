@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import activityDataReducer, {
   add_error,
   remove_error,
@@ -22,7 +19,7 @@ import activityDataReducer, {
   toggle_activity_panel,
   open_activity_panel,
   close_activity_panel,
-} from '../../../../../Frontend/src/redux/features/activityData';
+} from '@/redux/features/activityData';
 
 describe('activityData slice', () => {
   beforeEach(() => {

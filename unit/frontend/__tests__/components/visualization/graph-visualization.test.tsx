@@ -11,22 +11,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import GraphVisualization from '../../../../../Frontend/src/components/visualization/graph-visualization';
-import { getGraphVizualization } from '../../../../../Frontend/src/services/graph-visualiztion';
-import { delay } from '../../../../../Frontend/src/utils/time';
+import GraphVisualization from '@/components/visualization/graph-visualization';
+import { getGraphVizualization } from '@/services/graph-visualiztion';
+import { delay } from '@/utils/time';
 import { Network } from 'vis-network/standalone';
 import mockGraphData from '../../../fixtures/mock-graph-data.json';
 
-jest.mock('../../../../../Frontend/src/services/graph-visualiztion', () => ({
+jest.mock('@/services/graph-visualiztion', () => ({
   getGraphVizualization: jest.fn(),
 }));
 
-jest.mock('../../../../../Frontend/src/utils/time', () => ({
+jest.mock('@/utils/time', () => ({
   delay: jest.fn(() => Promise.resolve()),
 }));
 

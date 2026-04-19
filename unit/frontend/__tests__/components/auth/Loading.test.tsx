@@ -13,7 +13,7 @@ limitations under the License.
 
 import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import Loading from "../../../../../Frontend/src/components/auth/Loading";
+import Loading from "@/components/auth/Loading";
 
 const mockGet = jest.fn();
 

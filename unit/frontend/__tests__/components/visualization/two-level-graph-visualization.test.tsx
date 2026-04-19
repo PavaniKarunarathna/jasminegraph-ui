@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, act } from "@testing-library/react";
 
@@ -22,7 +19,7 @@ let mockHighLevelProps: any = {};
 let mockLowLevelProps: any = {};
 
 jest.mock(
-  "../../../../../Frontend/src/components/visualization/high-level-graph-visualization",
+  "@/components/visualization/high-level-graph-visualization",
   () => {
     const R = require("react");
     return {
@@ -36,7 +33,7 @@ jest.mock(
 );
 
 jest.mock(
-  "../../../../../Frontend/src/components/visualization/low-level-graph-visualization",
+  "@/components/visualization/low-level-graph-visualization",
   () => {
     const R = require("react");
     return {
@@ -89,7 +86,7 @@ jest.mock("@/redux/hook", () => ({
   useAppSelector: jest.fn().mockReturnValue({}),
 }));
 
-import TwoLevelGraphVisualization from "../../../../../Frontend/src/components/visualization/two-level-graph-visualization";
+import TwoLevelGraphVisualization from "@/components/visualization/two-level-graph-visualization";
 
 describe("TwoLevelGraphVisualization", () => {
   const defaultProps = {

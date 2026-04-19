@@ -13,9 +13,9 @@ limitations under the License.
 
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import Auth from "../../../../../Frontend/src/app/auth/page";
-import * as authService from "../../../../../Frontend/src/services/auth-service";
-import * as userService from "../../../../../Frontend/src/services/user-service";
+import Auth from "@/app/auth/page";
+import * as authService from "@/services/auth-service";
+import * as userService from "@/services/user-service";
 import { useRouter } from "next/navigation";
 
 // Mock next/router's useRouter
@@ -23,21 +23,19 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock("../../../../../Frontend/src/services/auth-service");
-jest.mock("../../../../../Frontend/src/services/user-service");
+jest.mock("@/services/auth-service");
+jest.mock("@/services/user-service");
 
-// Mock components
-jest.mock("../../../../../Frontend/src/components/auth/Loading", () => ({
+jest.mock("@/components/auth/Loading", () => ({
   __esModule: true,
   default: () => <div>Loading...</div>,
 }));
 
-jest.mock("../../../../../Frontend/src/components/auth/login-form", () => ({
+jest.mock("@/components/auth/login-form", () => ({
   __esModule: true,
   default: () => <div>Login Form</div>,
 }));
 
-// Mock antd
 jest.mock("antd", () => ({
   message: {
     error: jest.fn(),
@@ -106,7 +104,9 @@ describe("Auth Component", () => {
 
   test("displays error message on getAllUsers failure", async () => {
     const errorMock = jest.fn();
-    require("antd").message.error = errorMock;
+    const messageErrorSpy = jest
+      .spyOn(require("antd").message, "error")
+      .mockImplementation(errorMock);
 
     mockedGetAllUsers.mockRejectedValue(new Error("Backend error"));
 
@@ -115,5 +115,7 @@ describe("Auth Component", () => {
     await waitFor(() => {
       expect(errorMock).toHaveBeenCalledWith("Failed to ping backend");
     });
+
+    messageErrorSpy.mockRestore();
   });
 });

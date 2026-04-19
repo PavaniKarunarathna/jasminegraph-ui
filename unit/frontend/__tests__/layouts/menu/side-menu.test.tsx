@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 
@@ -62,7 +59,7 @@ jest.mock('@/redux/hook', () => ({
   useAppSelector: (selector: any) => selector({ authData: { userData: { role: 'admin' } } }),
 }));
 
-import SideMenu from '../../../../../Frontend/src/layouts/menu/side-menu';
+import SideMenu from '@/layouts/menu/side-menu';
 
 describe('SideMenu', () => {
   beforeEach(() => {

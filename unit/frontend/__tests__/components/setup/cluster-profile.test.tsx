@@ -11,21 +11,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ClusterSetup from '../../../../../Frontend/src/components/setup/cluster-profile';
-import { addNewCluster } from '../../../../../Frontend/src/services/cluster-service';
-import useAccessToken from '../../../../../Frontend/src/hooks/useAccessToken';
+import ClusterSetup from '@/components/setup/cluster-profile';
+import { addNewCluster } from '@/services/cluster-service';
+import useAccessToken from '@/hooks/useAccessToken';
 
-jest.mock('../../../../../Frontend/src/services/cluster-service', () => ({
+jest.mock('@/services/cluster-service', () => ({
   addNewCluster: jest.fn(),
 }));
 
-jest.mock('../../../../../Frontend/src/hooks/useAccessToken', () => ({
+jest.mock('@/hooks/useAccessToken', () => ({
   __esModule: true,
   default: jest.fn(),
 }));

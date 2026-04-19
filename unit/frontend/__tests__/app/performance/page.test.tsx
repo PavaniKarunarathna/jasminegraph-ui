@@ -11,23 +11,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import PerformancePage from '../../../../../Frontend/src/app/performance/page';
+import PerformancePage from '@/app/performance/page';
 
-jest.mock('../../../../../Frontend/src/layouts/page-wrapper', () => ({
+jest.mock('@/layouts/page-wrapper', () => ({
   __esModule: true,
   default: ({ children }: any) => <div>{children}</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/hooks/useIframeAvailability', () => ({
+jest.mock('@/hooks/useIframeAvailability', () => ({
   useIframeAvailability: jest.fn(),
 }));
 
-jest.mock('../../../../../Frontend/src/properties', () => ({
+jest.mock('@/properties', () => ({
   GRAFANA_DASHBOARD: {
     baseUrl: 'http://localhost:3000',
     uid: 'test-uid',
@@ -35,7 +32,7 @@ jest.mock('../../../../../Frontend/src/properties', () => ({
   },
 }));
 
-import { useIframeAvailability } from '../../../../../Frontend/src/hooks/useIframeAvailability';
+import { useIframeAvailability } from '@/hooks/useIframeAvailability';
 
 describe('PerformancePage', () => {
   const mockUseIframeAvailability = useIframeAvailability as jest.MockedFunction<typeof useIframeAvailability>;

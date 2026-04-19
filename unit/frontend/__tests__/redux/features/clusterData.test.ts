@@ -11,11 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-
 import clusterDataReducer, {
   set_Selected_Cluster,
-} from '../../../../../Frontend/src/redux/features/clusterData';
+} from '@/redux/features/clusterData';
 import mockClusterFixture from '../../../fixtures/mock-cluster.json';
 
 const mockCluster = mockClusterFixture;

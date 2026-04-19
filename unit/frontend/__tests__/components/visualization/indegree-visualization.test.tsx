@@ -11,16 +11,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { act, render, screen } from '@testing-library/react';
-import InDegreeVisualization from '../../../../../Frontend/src/components/visualization/indegree-visualization';
+import InDegreeVisualization from '@/components/visualization/indegree-visualization';
 
 const mockUseAppSelector = jest.fn();
 
-jest.mock('../../../../../Frontend/src/redux/hook', () => ({
+jest.mock('@/redux/hook', () => ({
   useAppSelector: (selector: any) => mockUseAppSelector(selector),
 }));
 

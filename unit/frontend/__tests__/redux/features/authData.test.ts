@@ -11,15 +11,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import authDataReducer, {
   authDataSlice,
   set_Is_User_Authenticated,
   set_User_Data,
   set_Clear_User_Data,
-} from '../../../../../Frontend/src/redux/features/authData';
+} from '@/redux/features/authData';
 import mockUserFixture from '../../../fixtures/mock-user.json';
 
 describe('authData slice', () => {

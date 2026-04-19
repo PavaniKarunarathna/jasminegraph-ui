@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 jest.mock(
   "@ant-design/icons",
   () => {
@@ -34,8 +31,8 @@ import {
   ClusterTopMenu,
   GraphPanelMenu,
   QueryInterfaceMenu,
-} from "../../../../Frontend/src/data/menu-data";
-import * as Routes from "../../../../Frontend/src/routes/page-routes";
+} from "@/data/menu-data";
+import * as Routes from "@/routes/page-routes";
 
 describe("menu-data", () => {
   it("exports expected ClusterTopMenu items", () => {

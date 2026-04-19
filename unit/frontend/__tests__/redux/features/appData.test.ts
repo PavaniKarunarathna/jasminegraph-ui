@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import appDataReducer, {
   set_side_bar_active_key,
-} from '../../../../../Frontend/src/redux/features/appData';
+} from '@/redux/features/appData';
 
 describe('appData slice', () => {
   it('returns initial state', () => {

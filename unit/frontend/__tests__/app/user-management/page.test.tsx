@@ -11,19 +11,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import UserManagementPage from '../../../../../Frontend/src/app/user-management/page';
-import { getAllUsers } from '../../../../../Frontend/src/services/user-service';
+import UserManagementPage from '@/app/user-management/page';
+import { getAllUsers } from '@/services/user-service';
 
-jest.mock('../../../../../Frontend/src/services/user-service', () => ({
+jest.mock('@/services/user-service', () => ({
   getAllUsers: jest.fn(),
 }));
 
-jest.mock('../../../../../Frontend/src/redux/hook', () => ({
+jest.mock('@/redux/hook', () => ({
   useAppSelector: jest.fn(() => ({
     users: [],
     state: { isUsersCacheLoaded: false },
@@ -34,30 +31,30 @@ jest.mock('react-redux', () => ({
   useDispatch: jest.fn(() => jest.fn()),
 }), { virtual: true });
 
-jest.mock('../../../../../Frontend/src/hooks/useActivity', () => ({
+jest.mock('@/hooks/useActivity', () => ({
   useActivity: () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
 
-jest.mock('../../../../../Frontend/src/layouts/page-wrapper', () => ({
+jest.mock('@/layouts/page-wrapper', () => ({
   __esModule: true,
   default: ({ children }: any) => <div>{children}</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/components/cluster-details/user-registration-form', () => ({
+jest.mock('@/components/cluster-details/user-registration-form', () => ({
   __esModule: true,
   default: ({ onSuccess }: any) => <div>User Registration Form</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/components/common/ActivityPanel', () => ({
+jest.mock('@/components/common/ActivityPanel', () => ({
   __esModule: true,
   default: ({ featureName }: any) => <div>Activity Panel</div>,
 }));
 
 jest.mock('react-highlight-words', () => ({
   __esModule: true,
-  default: ({ children }: any) => <span>{children}</span>,
+  default: ({ textToHighlight }: any) => <span>{textToHighlight}</span>,
 }), { virtual: true });
 
 jest.mock('next/navigation', () => ({
@@ -65,6 +62,10 @@ jest.mock('next/navigation', () => ({
     push: jest.fn(),
   }),
 }));
+
+jest.mock('@ant-design/icons', () => ({
+  SearchOutlined: () => <span data-testid="icon-search" />,
+}), { virtual: true });
 
 jest.mock(
   'antd',

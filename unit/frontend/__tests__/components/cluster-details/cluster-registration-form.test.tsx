@@ -11,13 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import ClusterRegistrationForm from "../../../../../Frontend/src/components/cluster-details/cluster-registration-form";
+import ClusterRegistrationForm from "@/components/cluster-details/cluster-registration-form";
 import { addNewCluster } from "@/services/cluster-service";
 import useAccessToken from "@/hooks/useAccessToken";
 import { useActivity } from "@/hooks/useActivity";

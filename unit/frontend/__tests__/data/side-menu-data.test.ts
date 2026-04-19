@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 jest.mock(
   "@ant-design/icons",
   () => {
@@ -37,8 +34,8 @@ jest.mock(
   { virtual: true }
 );
 
-import { getSideMenuData } from "../../../../Frontend/src/data/side-menu-data";
-import * as Routes from "../../../../Frontend/src/routes/page-routes";
+import { getSideMenuData } from "@/data/side-menu-data";
+import * as Routes from "@/routes/page-routes";
 
 describe("side-menu-data", () => {
   const router = { push: jest.fn() } as any;

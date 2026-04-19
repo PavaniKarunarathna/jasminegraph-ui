@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import { renderHook, act } from '@testing-library/react';
 import axios from 'axios';
-import useAccessToken, { ACCESS_TOKEN, REFRESH_TOKEN } from '../../../../Frontend/src/hooks/useAccessToken';
+import useAccessToken, { ACCESS_TOKEN, REFRESH_TOKEN } from '@/hooks/useAccessToken';
 
 jest.mock('axios');
 const mockAxios = axios as jest.Mocked<typeof axios>;

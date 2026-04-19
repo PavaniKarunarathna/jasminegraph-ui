@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import { renderHook, act } from '@testing-library/react';
 
 const mockDispatch = jest.fn();
@@ -27,7 +24,7 @@ jest.mock('@/redux/features/activityData', () => ({
   add_error: (payload: any) => mockAddError(payload),
 }));
 
-import { useActivity } from '../../../../Frontend/src/hooks/useActivity';
+import { useActivity } from '@/hooks/useActivity';
 
 describe('useActivity', () => {
   beforeEach(() => {

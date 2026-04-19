@@ -11,12 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-
 import cacheReducer, {
   set_Users_Cache,
   clear_Users_Cache,
-} from '../../../../../Frontend/src/redux/features/cacheSlice';
+} from '@/redux/features/cacheSlice';
 import mockUserFixture from '../../../fixtures/mock-user.json';
 
 const mockUsers = [

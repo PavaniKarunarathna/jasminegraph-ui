@@ -11,13 +11,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HadoopUploadModal from '../../../../../Frontend/src/components/graph-panel/hadoop-upload-modal';
+import HadoopUploadModal from '@/components/graph-panel/hadoop-upload-modal';
 
 jest.mock('antd', () => {
   const React = require('react');

@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import GraphDetails from "../../../../../../Frontend/src/app/graph-panel/graph/page";
@@ -29,6 +26,11 @@ jest.mock("../../../../../../Frontend/src/hooks/useActivity", () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
+
+jest.mock('@ant-design/icons', () => ({
+  LoadingOutlined: () => <span data-testid="icon-loading" />,
+  QuestionCircleOutlined: () => <span data-testid="icon-question-circle" />,
+}), { virtual: true });
 
 jest.mock(
   "antd",

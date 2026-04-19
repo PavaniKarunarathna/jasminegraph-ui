@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import TwoLevelGraphVisualization from '../../../../../Frontend/src/components/visualization/high-level-graph-visualization';
+import TwoLevelGraphVisualization from '@/components/visualization/high-level-graph-visualization';
 import { Network } from 'vis-network/standalone';
 
 jest.mock('vis-network/standalone', () => ({

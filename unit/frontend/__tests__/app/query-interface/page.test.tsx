@@ -11,28 +11,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import QueryInterfacePage from '../../../../../Frontend/src/app/query-interface/page';
-import { getGraphList } from '../../../../../Frontend/src/services/graph-service';
+import QueryInterfacePage from '@/app/query-interface/page';
+import { getGraphList } from '@/services/graph-service';
 
-jest.mock('../../../../../Frontend/src/services/graph-service', () => ({
+jest.mock('@/services/graph-service', () => ({
   getGraphList: jest.fn(),
 }));
 
-jest.mock('../../../../../Frontend/src/redux/hook', () => ({
+jest.mock('@/redux/hook', () => ({
   useAppDispatch: () => jest.fn(),
   useAppSelector: () => ({ messagePool: {} }),
 }));
 
-jest.mock('../../../../../Frontend/src/hooks/useActivity', () => ({
+jest.mock('@/hooks/useActivity', () => ({
   useActivity: () => ({
     reportErrorFromException: jest.fn(),
   }),
 }));
+
+jest.mock('@ant-design/icons', () => ({
+  DownloadOutlined: () => <span data-testid="icon-download" />,
+  CaretRightOutlined: () => <span data-testid="icon-caret-right" />,
+}), { virtual: true });
 
 jest.mock(
   'react-use-websocket',
@@ -55,7 +57,7 @@ jest.mock(
   { virtual: true }
 );
 
-jest.mock('../../../../../Frontend/src/components/visualization/query-visualization', () => ({
+jest.mock('@/components/visualization/query-visualization', () => ({
   __esModule: true,
   default: () => <div>Query Visualization</div>,
 }));

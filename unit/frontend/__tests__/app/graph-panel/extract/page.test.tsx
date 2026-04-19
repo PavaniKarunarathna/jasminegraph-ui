@@ -11,12 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import GraphExtract from "../../../../../../Frontend/src/app/graph-panel/extract/page";
+import GraphExtract from "@/app/graph-panel/extract/page";
 
 jest.mock("lru-cache", () => ({
   LRUCache: class {
@@ -32,7 +29,7 @@ jest.mock("react-redux", () => ({
   useDispatch: () => jest.fn(),
 }), { virtual: true });
 
-jest.mock("../../../../../../Frontend/src/redux/hook", () => ({
+jest.mock("@/redux/hook", () => ({
   useAppDispatch: () => jest.fn(),
   useAppSelector: () => ({ 
     uploadBytes: [],
@@ -40,19 +37,26 @@ jest.mock("../../../../../../Frontend/src/redux/hook", () => ({
   }),
 }));
 
-jest.mock("../../../../../../Frontend/src/hooks/useActivity", () => ({
+jest.mock("@/hooks/useActivity", () => ({
   useActivity: () => ({
     reportError: jest.fn(),
     reportErrorFromException: jest.fn(),
   }),
 }));
 
-jest.mock("../../../../../../Frontend/src/services/graph-service", () => ({
+jest.mock("@/services/graph-service", () => ({
   getKGConstructionMetaData: jest.fn(),
   getOnProgressKGConstructionMetaData: jest.fn(),
   stopConstructKG: jest.fn(),
   deleteGraph: jest.fn(),
 }));
+
+jest.mock('@ant-design/icons', () => ({
+  InboxOutlined: () => <span data-testid="icon-inbox" />,
+  LoadingOutlined: () => <span data-testid="icon-loading" />,
+  DownOutlined: () => <span data-testid="icon-down" />,
+  UpOutlined: () => <span data-testid="icon-up" />,
+}), { virtual: true });
 
 jest.mock(
   "react-use-websocket",
@@ -74,27 +78,27 @@ jest.mock(
   { virtual: true }
 );
 
-jest.mock("../../../../../../Frontend/src/components/graph-panel/kafka-upload-modal", () => ({
+jest.mock("@/components/graph-panel/kafka-upload-modal", () => ({
   __esModule: true,
   default: () => <div>Kafka Upload Modal</div>,
 }));
 
-jest.mock("../../../../../../Frontend/src/components/extract-panel/hadoop-extract-modal", () => ({
+jest.mock("@/components/extract-panel/hadoop-extract-modal", () => ({
   __esModule: true,
   default: () => <div>Hadoop Extract Modal</div>,
 }));
 
-jest.mock("../../../../../../Frontend/src/components/extract-panel/hadoop-kg-form", () => ({
+jest.mock("@/components/extract-panel/hadoop-kg-form", () => ({
   __esModule: true,
   default: () => <div>Hadoop KG Form</div>,
 }));
 
-jest.mock("../../../../../../Frontend/src/components/extract-panel/kg-form", () => ({
+jest.mock("@/components/extract-panel/kg-form", () => ({
   __esModule: true,
   default: () => <div>KG Form</div>,
 }));
 
-jest.mock("../../../../../../Frontend/src/components/extract-panel/progress-bar", () => ({
+jest.mock("@/components/extract-panel/progress-bar", () => ({
   __esModule: true,
   default: () => <div>Progress Bar</div>,
 }));

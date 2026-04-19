@@ -11,9 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 jest.mock('axios', () => ({
   __esModule: true,
   default: jest.fn(),
@@ -27,7 +24,7 @@ import {
   registerAdmin,
   registerUser,
   getUserDataByToken
-} from '../../../../Frontend/src/services/auth-service';
+} from '@/services/auth-service';
 import mockUserFixture from '../../fixtures/mock-user.json';
 
 const mockedAxios = axios as jest.MockedFunction<typeof axios>;

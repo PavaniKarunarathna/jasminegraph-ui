@@ -11,19 +11,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
-import { AnalyzeOptions } from '../../../../Frontend/src/data/analyze-data';
+import { AnalyzeOptions } from '@/data/analyze-data';
 
 const mockAuthApi = jest.fn();
 
-jest.mock('../../../../Frontend/src/services/axios', () => ({
+jest.mock('@/services/axios', () => ({
   __esModule: true,
   authApi: (config: any) => mockAuthApi(config),
 }));
 
-import { analyzeGraph } from '../../../../Frontend/src/services/analyzer-service';
+import { analyzeGraph } from '@/services/analyzer-service';
 
 describe('analyzer-service', () => {
   beforeEach(() => {

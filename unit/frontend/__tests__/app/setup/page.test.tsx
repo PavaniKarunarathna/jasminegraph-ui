@@ -11,29 +11,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import SetupPage from '../../../../../Frontend/src/app/setup/page';
+import SetupPage from '@/app/setup/page';
 
-jest.mock('../../../../../Frontend/src/components/setup/welcome-screen', () => ({
+jest.mock('@/components/setup/welcome-screen', () => ({
   __esModule: true,
   default: ({ onSuccess }: any) => <div>Welcome Screen</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/components/setup/admin-profile', () => ({
+jest.mock('@/components/setup/admin-profile', () => ({
   __esModule: true,
   default: ({ onSuccess }: any) => <div>Admin Profile</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/components/setup/cluster-profile', () => ({
+jest.mock('@/components/setup/cluster-profile', () => ({
   __esModule: true,
   default: ({ onSuccess }: any) => <div>Cluster Setup</div>,
 }));
 
-jest.mock('../../../../../Frontend/src/components/setup/last-step', () => ({
+jest.mock('@/components/setup/last-step', () => ({
   __esModule: true,
   default: () => <div>Finish Step</div>,
 }));
