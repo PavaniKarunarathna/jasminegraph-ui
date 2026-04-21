@@ -14,7 +14,11 @@ limitations under the License.
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Descriptions, Divider, Form, Input, Modal, Radio, Select, Space, Tag, message } from 'antd';
-import { startKafkaStream, KafkaStreamRequest } from '@/services/graph-service';
+import {
+  startKafkaStream,
+  KafkaStreamRequest,
+  saveKafkaStreamConfig,
+} from '@/services/graph-service';
 import { IGraphDetails, IKafkaStreamStatus } from '@/types/graph-types';
 import axios from 'axios';
 
@@ -31,6 +35,7 @@ type Props = {
     groupId: string;
     offsetReset: string;
   };
+  kafkaTopics?: string[];
   dataLoading?: boolean;
 }
 
@@ -40,12 +45,17 @@ const KafkaUploadModal = ({
   onStreamStarted, 
   graphs: graphsProp = [], 
   kafkaDefaults: kafkaDefaultsProp,
+  kafkaTopics: kafkaTopicsProp = [],
   dataLoading = false 
 }: Props) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'configure' | 'confirm'>('configure');
   const [pendingStatus, setPendingStatus] = useState<IKafkaStreamStatus | null>(null);
+  const topicOptions = useMemo(
+    () => kafkaTopicsProp.map((topic) => ({ value: topic, label: topic })),
+    [kafkaTopicsProp]
+  );
   
   // Use props for graphs data
   const graphsData = graphsProp;
@@ -150,6 +160,7 @@ const KafkaUploadModal = ({
         : values.useDefaultGraphId
           ? undefined
           : normalizedGraphId,
+      streamStatus: 'active',
       graphName: values.isExistingGraph ? selectedGraph?.name : undefined,
       isExistingGraph: Boolean(values.isExistingGraph),
       useDefaultGraphId: values.isExistingGraph ? Boolean(values.useDefaultGraphId) : true,
@@ -235,10 +246,27 @@ const KafkaUploadModal = ({
       setLoading(true);
       const response = await startKafkaStream(payload);
       const resolvedGraphId = response?.data?.graphId || streamStatus.graphId;
+      const configResponse = await saveKafkaStreamConfig({
+        topicName: streamStatus.topicName,
+        graphId: resolvedGraphId,
+        isExistingGraph: streamStatus.isExistingGraph,
+        useDefaultGraphId: streamStatus.isExistingGraph ? undefined : streamStatus.useDefaultGraphId,
+        partitionAlgorithm: streamStatus.isExistingGraph ? undefined : streamStatus.partitionAlgorithm,
+        partitionAlgorithmLabel: streamStatus.partitionAlgorithmLabel,
+        isDirected: streamStatus.isExistingGraph ? undefined : streamStatus.isDirected,
+        graphTypeLabel: streamStatus.graphTypeLabel,
+        useDefaultKafka: streamStatus.useDefaultKafka,
+        kafkaConfigPath: streamStatus.useDefaultKafka ? undefined : streamStatus.kafkaConfigPath,
+        kafkaBroker: streamStatus.useDefaultKafka ? streamStatus.kafkaBroker : undefined,
+        groupId: streamStatus.useDefaultKafka ? streamStatus.groupId : undefined,
+        offsetReset: streamStatus.useDefaultKafka ? streamStatus.offsetReset : undefined,
+      });
       const resolvedStatus: IKafkaStreamStatus = {
         ...streamStatus,
         connected: true,
+        streamStatus: configResponse?.data?.stream_status || 'active',
         graphId: resolvedGraphId,
+        dbId: configResponse?.data?.id,
         updatedAt: new Date().toISOString(),
       };
 
@@ -357,7 +385,14 @@ const KafkaUploadModal = ({
               { validator: (_, value) => String(value ?? '').trim() ? Promise.resolve() : Promise.reject(new Error('Enter a topic name')) }
             ]}
           >
-            <Input placeholder="graph-topic" />
+            <Select
+              showSearch
+              options={topicOptions}
+              loading={dataLoading}
+              placeholder={dataLoading ? 'Loading Kafka topics...' : 'Search or select Kafka topic'}
+              filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              notFoundContent={dataLoading ? 'Loading topics...' : 'No matching topics'}
+            />
           </Form.Item>
 
           <Button type="primary" onClick={handleReview} block>

@@ -40,6 +40,20 @@ export const authApi = axios.create({
   }
 })
 
+// Add request interceptor to dynamically set Cluster-ID on each request
+authApi.interceptors.request.use(
+    (config) => {
+        const clusterID = getClusterID();
+        if (clusterID) {
+            config.headers["Cluster-ID"] = clusterID;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 const api = axios.create({
     headers: {
         "Content-Type": "application/json",

@@ -31,7 +31,9 @@ import {
     stopConstructKG,
     stopKafkaStream,
     startKafkaStream,
-    KafkaStreamRequest
+    KafkaStreamRequest,
+    loadKafkaStreamConfigs,
+    updateKafkaStreamConfigStatus,
 } from "@/services/graph-service";
 import HadoopKgForm from "@/components/extract-panel/hadoop-kg-form";
 import {LRUCache} from "lru-cache";
@@ -92,10 +94,27 @@ export default function GraphUpload() {
     const [showMeta, setShowMeta] = useState<string>("");
     const [pausedGraphs, setPausedGraphs] = useState<Record<string, boolean>>({});
     const [kafkaStatuses, setKafkaStatuses] = useState<IKafkaStreamStatus[]>([]);
-    const [stoppingKafka, setStoppingKafka] = useState<boolean>(false);
-    const [startingKafka, setStartingKafka] = useState<boolean>(false);
+    const [kafkaPauseLoadingByKey, setKafkaPauseLoadingByKey] = useState<Record<string, boolean>>({});
+    const [kafkaTerminateLoadingByKey, setKafkaTerminateLoadingByKey] = useState<Record<string, boolean>>({});
+    const [kafkaStartLoadingByKey, setKafkaStartLoadingByKey] = useState<Record<string, boolean>>({});
+    const [terminateConfirmModal, setTerminateConfirmModal] = useState<IKafkaStreamStatus | null>(null);
     const [showKafkaDetails, setShowKafkaDetails] = useState<boolean[]>([]);
     const [tpsHistory, setTpsHistory] = useState<Record<string, number[]>>({});
+
+    const getKafkaStatusKey = (status: IKafkaStreamStatus): string => {
+        const topicKey = String(status.topicName || '').trim();
+        if (topicKey.length > 0) {
+            return topicKey;
+        }
+        const dbKey = String(status.dbId || '').trim();
+        if (dbKey.length > 0) {
+            return dbKey;
+        }
+        return String(status.graphId || 'unknown');
+    };
+
+    const normalizeStreamStatus = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+
     const getAverageTPS = (graphId: string) => {
         const history = tpsHistory[graphId] || [];
         if (history.length === 0) return 0;
@@ -217,24 +236,64 @@ export default function GraphUpload() {
     }, [clientId, readyState, showUploadSection, hadoopModalOpen, hasActiveUploads]);
 
     useEffect(() => {
-const loadKafkaStatuses = () => {
-        const raw = localStorage.getItem(KAFKA_STATUS_STORAGE_KEY);
-        if (!raw) {
-            setKafkaStatuses([]);
-            return;
-        }
-        try {
-            const parsed = JSON.parse(raw);
-            setKafkaStatuses(Array.isArray(parsed) ? parsed : parsed ? [parsed] : []);
-        } catch {
-            setKafkaStatuses([]);
+        const normalizeLocalStatus = (item: any): IKafkaStreamStatus => ({
+            ...item,
+            streamStatus: normalizeStreamStatus(item?.streamStatus) as IKafkaStreamStatus['streamStatus'] ||
+                (item?.connected ? "active" : "paused"),
+        });
+
+        const mapDbStatus = (item: any): IKafkaStreamStatus => ({
+            connected: normalizeStreamStatus(item.stream_status) === "active",
+            streamStatus: normalizeStreamStatus(item.stream_status) as IKafkaStreamStatus['streamStatus'],
+            dbId: item.id,
+            topicName: item.topic_name,
+            graphId: item.graph_id || undefined,
+            isExistingGraph: item.is_existing_graph,
+            useDefaultGraphId: item.use_default_graph_id,
+            partitionAlgorithm: item.partition_algorithm || undefined,
+            partitionAlgorithmLabel: item.partition_algorithm_label || "",
+            isDirected: Boolean(item.is_directed),
+            graphTypeLabel: item.graph_type_label || "",
+            useDefaultKafka: item.use_default_kafka,
+            kafkaConfigPath: item.kafka_config_path || undefined,
+            kafkaBroker: item.kafka_broker || undefined,
+            groupId: item.group_id || undefined,
+            offsetReset: item.offset_reset || undefined,
+            updatedAt: item.updated_at,
+        });
+
+        const loadKafkaStatuses = async () => {
+            const raw = localStorage.getItem(KAFKA_STATUS_STORAGE_KEY);
+            let localStatuses: IKafkaStreamStatus[] = [];
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    const arr = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+                    localStatuses = arr.map(normalizeLocalStatus);
+                } catch {
+                    localStatuses = [];
+                }
             }
+
+            try {
+                const result = await loadKafkaStreamConfigs();
+                const dbStatuses = (result?.data || []).map(mapDbStatus);
+                if (dbStatuses.length > 0) {
+                    setKafkaStatuses(dbStatuses);
+                    localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(dbStatuses));
+                    return;
+                }
+            } catch {
+                // Fall back to local cache when backend data cannot be fetched.
+            }
+
+            setKafkaStatuses(localStatuses);
         };
 
-        loadKafkaStatuses();
+        void loadKafkaStatuses();
         const onStorage = (event: StorageEvent) => {
             if (event.key === KAFKA_STATUS_STORAGE_KEY) {
-                loadKafkaStatuses();
+                void loadKafkaStatuses();
             }
         };
 
@@ -246,48 +305,66 @@ const loadKafkaStatuses = () => {
         setShowKafkaDetails(new Array(kafkaStatuses.length).fill(false));
     }, [kafkaStatuses.length]);
 
-    const handleStopKafkaStream = async () => {
-        // Find all connected streams to stop
-        const connectedStreams = kafkaStatuses.filter(s => s.connected);
-        if (connectedStreams.length === 0) {
-            message.warning("No active Kafka streams to stop.");
-            return;
-        }
+        const handlePauseKafkaStream = async (status: IKafkaStreamStatus) => {
+            const statusKey = getKafkaStatusKey(status);
+            try {
+                setKafkaPauseLoadingByKey((prev) => ({ ...prev, [statusKey]: true }));
+                const response = await stopKafkaStream(status.topicName);
+                message.success(response.data?.message || "Kafka streaming paused successfully");
+                if (status.dbId) {
+                    await updateKafkaStreamConfigStatus(status.dbId, 'paused');
+                }
+                const updatedStatuses = kafkaStatuses.map(s =>
+                    s.topicName === status.topicName
+                        ? { ...s, connected: false, streamStatus: 'paused' as const, updatedAt: new Date().toISOString() }
+                        : s
+                );
+                localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(updatedStatuses));
+                setKafkaStatuses(updatedStatuses);
+            } catch (error) {
+                const errorMessage = axios.isAxiosError(error)
+                    ? error.response?.data?.message || "Failed to pause Kafka streaming"
+                    : "Failed to pause Kafka streaming";
+                message.error(errorMessage);
+            } finally {
+                setKafkaPauseLoadingByKey((prev) => ({ ...prev, [statusKey]: false }));
+            }
+        };
 
-        try {
-            setStoppingKafka(true);
-            console.log(`🛑 Stopping ${connectedStreams.length} active Kafka stream(s)...`);
-            
-            const response = await stopKafkaStream();
-            
-            console.log("✅ Stop command response:", response);
-            message.success(response.data?.message || "Kafka streaming stopped successfully");
-            
-            // Mark all connected streams as disconnected, keep disconnected ones as-is
-            const updatedStatuses = kafkaStatuses.map(status => 
-                status.connected 
-                    ? { ...status, connected: false, updatedAt: new Date().toISOString() }
-                    : status
-            );
-            
-            localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(updatedStatuses));
-            setKafkaStatuses(updatedStatuses);
-            
-            console.log("✅ Active Kafka streams marked as disconnected");
-        } catch (error) {
-            console.error("❌ Error stopping Kafka stream:", error);
-            const errorMessage = axios.isAxiosError(error)
-                ? error.response?.data?.message || "Failed to stop Kafka streaming"
-                : "Failed to stop Kafka streaming";
-            message.error(errorMessage);
-        } finally {
-            setStoppingKafka(false);
-        }
-    };
+        const handleTerminateKafkaStream = async (status: IKafkaStreamStatus) => {
+            setTerminateConfirmModal(status);
+        };
+
+        const confirmTerminateKafkaStream = async (status: IKafkaStreamStatus) => {
+            const statusKey = getKafkaStatusKey(status);
+            try {
+                setKafkaTerminateLoadingByKey((prev) => ({ ...prev, [statusKey]: true }));
+                if (status.dbId) {
+                    await updateKafkaStreamConfigStatus(status.dbId, 'terminated');
+                }
+                const updatedStatuses = kafkaStatuses.map(s =>
+                    s.topicName === status.topicName
+                        ? { ...s, connected: false, streamStatus: 'terminated' as const, updatedAt: new Date().toISOString() }
+                        : s
+                );
+                localStorage.setItem(KAFKA_STATUS_STORAGE_KEY, JSON.stringify(updatedStatuses));
+                setKafkaStatuses(updatedStatuses);
+                message.success("Kafka stream terminated and removed from the Extract tab.");
+                setTerminateConfirmModal(null);
+            } catch (error) {
+                const errorMessage = axios.isAxiosError(error)
+                    ? error.response?.data?.message || "Failed to terminate Kafka stream"
+                    : "Failed to terminate Kafka stream";
+                message.error(errorMessage);
+            } finally {
+                setKafkaTerminateLoadingByKey((prev) => ({ ...prev, [statusKey]: false }));
+            }
+        };
 
     const handleStartKafkaStream = async (status: IKafkaStreamStatus) => {
+        const statusKey = getKafkaStatusKey(status);
         try {
-            setStartingKafka(true);
+            setKafkaStartLoadingByKey((prev) => ({ ...prev, [statusKey]: true }));
             console.log("▶️ Starting Kafka stream for topic:", status.topicName);
             
             // Convert the stored status back to the API request format
@@ -309,9 +386,14 @@ const loadKafkaStatuses = () => {
             const updatedStatus: IKafkaStreamStatus = {
                 ...status,
                 connected: true,
+                streamStatus: "active",
                 graphId: resolvedGraphId,
                 updatedAt: new Date().toISOString(),
             };
+
+            if (status.dbId) {
+                await updateKafkaStreamConfigStatus(status.dbId, "active", resolvedGraphId);
+            }
 
             // Update the specific status in the array
             const updatedStatuses = kafkaStatuses.map(s => 
@@ -330,11 +412,15 @@ const loadKafkaStatuses = () => {
                 : "Failed to start Kafka streaming";
             message.error(errorMessage);
         } finally {
-            setStartingKafka(false);
+            setKafkaStartLoadingByKey((prev) => ({ ...prev, [statusKey]: false }));
         }
     };
 
     const showExtractUploadPanel = showUploadSection;
+    const visibleKafkaStatuses = kafkaStatuses.filter(
+        (status) => normalizeStreamStatus(status.streamStatus) !== 'terminated'
+    );
+
     const onSearch = (value: string) => {
         const filteredClusters = graphs.filter((cluster) => cluster.name.toLowerCase().includes(value.toLowerCase()));
     };
@@ -353,8 +439,21 @@ const loadKafkaStatuses = () => {
               }
             />
 
-            {kafkaStatuses.map((status, index) => (
-                <Card key={index} style={{ marginBottom: "20px" }} bodyStyle={{ padding: 16 }}>
+            {visibleKafkaStatuses.map((status, index) => {
+                const statusKey = getKafkaStatusKey(status);
+                const isPauseLoading = Boolean(kafkaPauseLoadingByKey[statusKey]);
+                const isTerminateLoading = Boolean(kafkaTerminateLoadingByKey[statusKey]);
+                const isStartLoading = Boolean(kafkaStartLoadingByKey[statusKey]);
+
+                return (
+                <Card
+                    key={index}
+                    style={{
+                        marginBottom: "20px",
+
+                    }}
+                    bodyStyle={{ padding: 16 }}
+                >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
                         <Text strong style={{ fontSize: 18 }}>Kafka Stream: {status.topicName || "No Topic"}</Text>
                         <Button
@@ -378,28 +477,51 @@ const loadKafkaStatuses = () => {
                             </div>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-                            <Tag color={status.connected ? "success" : "error"}>
-                                {status.connected ? "Connected" : "Disconnected"}
-                            </Tag>
-                            {status.connected ? (
-                                <Button
-                                    type="primary"
-                                    danger
-                                    onClick={handleStopKafkaStream}
-                                    loading={stoppingKafka}
-                                    size="small"
-                                >
-                                    Stop Streaming
-                                </Button>
+                            {status.streamStatus === "paused" ? (
+                                <Tag color="warning">Paused</Tag>
                             ) : (
-                                <Button
-                                    type="primary"
-                                    onClick={() => handleStartKafkaStream(status)}
-                                    loading={startingKafka}
-                                    size="small"
-                                >
-                                    Start Streaming
-                                </Button>
+                                <Tag color="success">Active</Tag>
+                            )}
+                            {status.connected ? (
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <Button
+                                        style={{ backgroundColor: "#52c41a", borderColor: "#52c41a", color: "#fff" }}
+                                        onClick={() => handlePauseKafkaStream(status)}
+                                        loading={isPauseLoading}
+                                        size="small"
+                                    >
+                                        Pause
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}
+                                        onClick={() => handleTerminateKafkaStream(status)}
+                                        loading={isTerminateLoading}
+                                        size="small"
+                                    >
+                                        Terminate
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <Button
+                                        type="primary"
+                                        onClick={() => handleStartKafkaStream(status)}
+                                        loading={isStartLoading}
+                                        size="small"
+                                    >
+                                        {status.streamStatus === "paused" ? "Resume" : "Start Streaming"}
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}
+                                        onClick={() => handleTerminateKafkaStream(status)}
+                                        loading={isTerminateLoading}
+                                        size="small"
+                                    >
+                                        Terminate
+                                    </Button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -432,9 +554,30 @@ const loadKafkaStatuses = () => {
                         </div>
                     )}
                 </Card>
-            ))}
+                );
+            })}
 
-
+            {/* Terminate Confirmation Modal */}
+            <Modal
+                title={<span style={{ color: '#000' }}>Confirm Termination</span>}
+                open={terminateConfirmModal !== null}
+                onOk={() => terminateConfirmModal && confirmTerminateKafkaStream(terminateConfirmModal)}
+                onCancel={() => setTerminateConfirmModal(null)}
+                okText="Terminate"
+                cancelText="Cancel"
+                okButtonProps={{
+                    loading: terminateConfirmModal ? Boolean(kafkaTerminateLoadingByKey[getKafkaStatusKey(terminateConfirmModal)]) : false,
+                    style: { backgroundColor: '#000', borderColor: '#000', color: '#fff' },
+                }}
+                style={{ color: '#000' }}
+            >
+                <p style={{ color: '#000' }}>
+                    Are you sure you want to terminate the Kafka stream for topic <strong>{terminateConfirmModal?.topicName}</strong>?
+                </p>
+                <p style={{ color: '#000', marginTop: '12px' }}>
+                    This action will remove the stream from the extract tab and cannot be undone.
+                </p>
+            </Modal>
 
             {showExtractUploadPanel &&
                 <div className="graph-upload-panel">

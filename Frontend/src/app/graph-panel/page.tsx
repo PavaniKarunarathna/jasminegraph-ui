@@ -36,7 +36,7 @@ import { useActivity } from "@/hooks/useActivity";
 import { useRouter } from "next/navigation";
 import * as Routes from "@/routes/page-routes";
 import { IKafkaStreamStatus, IGraphDetails } from "@/types/graph-types";
-import { getGraphList, getKafkaStreamingDefaults } from "@/services/graph-service";
+import { getGraphList, getKafkaStreamingDefaults, getKafkaTopics } from "@/services/graph-service";
 
 const KAFKA_LOGO_SRC = "/assets/images/kafka-logo.jpg";
 const HADOOP_LOGO_SRC = "/assets/images/hadoop-logo.jpg";
@@ -60,6 +60,7 @@ export default function GraphUpload() {
     groupId: '',
     offsetReset: 'earliest',
   });
+  const [kafkaTopics, setKafkaTopics] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   // Fetch graphs and Kafka defaults when component mounts
@@ -67,9 +68,10 @@ export default function GraphUpload() {
     const fetchData = async () => {
       setDataLoading(true);
       try {
-        const [graphResult, defaultsResult] = await Promise.allSettled([
+        const [graphResult, defaultsResult, topicsResult] = await Promise.allSettled([
           getGraphList(),
-          getKafkaStreamingDefaults()
+          getKafkaStreamingDefaults(),
+          getKafkaTopics(),
         ]);
 
         if (graphResult.status === 'fulfilled') {
@@ -92,6 +94,18 @@ export default function GraphUpload() {
           });
         } else {
           console.error('Failed to load Kafka defaults:', defaultsResult.reason);
+        }
+
+        if (topicsResult.status === 'fulfilled') {
+          const topics = Array.isArray(topicsResult.value?.data?.topics)
+            ? topicsResult.value.data.topics
+            : [];
+          const uniqueSortedTopics = Array.from(new Set(topics.map((topic: string) => String(topic).trim()).filter(Boolean)))
+            .sort((a, b) => a.localeCompare(b));
+          setKafkaTopics(uniqueSortedTopics);
+        } else {
+          console.error('Failed to load Kafka topics:', topicsResult.reason);
+          message.error('Failed to load Kafka topics');
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -229,6 +243,7 @@ export default function GraphUpload() {
         }}
         graphs={graphs}
         kafkaDefaults={kafkaDefaults}
+        kafkaTopics={kafkaTopics}
         dataLoading={dataLoading}
       />
       <HadoopUploadModal

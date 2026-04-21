@@ -59,6 +59,8 @@ export interface IKnowledgeGraph {
 
   export interface IKafkaStreamStatus {
     connected: boolean;
+    streamStatus: 'active' | 'paused' | 'terminated';
+    dbId?: number;
     topicName: string;
     graphId?: string;
     graphName?: string;

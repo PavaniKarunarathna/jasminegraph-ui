@@ -13,10 +13,12 @@ limitations under the License.
 
 import { Router } from 'express';
 import {
-    getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties,
-    getDataFromHadoop, constructKG, stopConstructKG,
-    updateKGConstructionMetaByClusterId, getKGConstructionMetaByGraphId, getOnProgressKGConstructionMeta, validateHDFS,
-  constructKGTXT, startKafkaStream, stopKafkaStream, getKafkaStreamDefaults } from '../controllers/graph.controller';
+  getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties,
+  getDataFromHadoop, constructKG, stopConstructKG,
+  updateKGConstructionMetaByClusterId, getKGConstructionMetaByGraphId, getOnProgressKGConstructionMeta, validateHDFS,
+  constructKGTXT, startKafkaStream, stopKafkaStream, getKafkaTopics, createKafkaStreamConfig, getKafkaStreamConfigs, 
+  updateKafkaStreamConfigStatus,
+} from '../controllers/graph.controller';
 import multer from 'multer';
 import path from 'path';
 import fs from "fs";
@@ -58,19 +60,23 @@ const graphRoute = () => {
   router.post('/upload', upload.single("file"), uploadGraph);
   router.post('/kafka/stream', startKafkaStream);
   router.post('/kafka/stream/stop', stopKafkaStream);
+  router.get('/kafka/topics', getKafkaTopics);
+  router.get('/kafka/configs', getKafkaStreamConfigs);
+  router.post('/kafka/configs', createKafkaStreamConfig);
+  router.patch('/kafka/configs/:id/status', updateKafkaStreamConfigStatus);
   router.delete('/:id', removeGraph);
   router.post('/analyze/trianglecount', triangleCount)
   router.get('/visualize', getGraphVisualization);
   router.get('/data', getGraphData)
   router.get('/info', getClusterProperties)
-    router.get('/hadoop', getDataFromHadoop);
+  router.get('/hadoop', getDataFromHadoop);
   router.post('/hadoop/validate-file', validateHDFS)
-    router.post('/hadoop/construct-kg', constructKG);
-    router.post('/hadoop/stop-construct-kg', stopConstructKG);
-    router.post('/construct-kg-local', upload_file.single("file"),constructKGTXT);
-    router.get('/construct-kg-meta', getKGConstructionMetaByGraphId);
-    router.get('/construct-kg-meta/progress', getOnProgressKGConstructionMeta);
-    router.put('/construct-kg-meta', updateKGConstructionMetaByClusterId);
+  router.post('/hadoop/construct-kg', constructKG);
+  router.post('/hadoop/stop-construct-kg', stopConstructKG);
+  router.post('/construct-kg-local', upload_file.single("file"),constructKGTXT);
+  router.get('/construct-kg-meta', getKGConstructionMetaByGraphId);
+  router.get('/construct-kg-meta/progress', getOnProgressKGConstructionMeta);
+  router.put('/construct-kg-meta', updateKGConstructionMetaByClusterId);
 
   return router;
 };

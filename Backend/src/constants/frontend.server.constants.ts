@@ -29,4 +29,5 @@ export const CONSTRUCT_KG_COMMAND_LOCAL = "constructkgl";
 export const STOP_CONSTRUCT_KG_COMMAND = "stop-constructkg";
 export const KAFKA_STREAM_COMMAND = "adstrmk";
 export const STOP_KAFKA_STREAM_COMMAND = "stopstrm";
+export const KAFKA_TOPICS_COMMAND = "ktop";
 export const NO_OF_FIELDS_IN_UPBYTES_CMD = 14;
