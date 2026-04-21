@@ -186,9 +186,16 @@ export type KafkaTopicListResponse = {
     topics: string[];
 };
 
+export type KafkaStartStreamResponse = {
+    message: string;
+    graphId?: string;
+    output?: string;
+    [key: string]: unknown;
+};
+
 export async function startKafkaStream(
         payload: KafkaStreamRequest
-): Promise<{ data: { message: string; graphId?: string } }> {
+): Promise<{ data: KafkaStartStreamResponse }> {
         try {
                 const result = await authApi({
                         method: "post",
@@ -199,7 +206,14 @@ export async function startKafkaStream(
                         data: payload,
                 }).then((res) => res.data);
 
-                return { data: result };
+        const normalized: KafkaStartStreamResponse = {
+            ...result,
+            message: String(result?.message ?? "Kafka streaming started"),
+            graphId: result?.graphId === undefined ? undefined : String(result.graphId),
+            output: result?.output === undefined ? undefined : String(result.output),
+        };
+
+        return { data: normalized };
         } catch (err) {
                 return Promise.reject(err);
         }

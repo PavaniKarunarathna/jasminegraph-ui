@@ -634,7 +634,7 @@ const startKafkaStream = async (req: Request, res: Response) => {
             if (promptBuffer.includes("send the existing graph id")) {
                 promptBuffer = "";
                 if (!normalizedGraphId) {
-                    finish(400, { message: "graphId is required for existing graph" });
+                    finish(400, { message: "graph id is required for existing graph" });
                     return;
                 }
                 writeLine(normalizedGraphId);
@@ -669,7 +669,7 @@ const startKafkaStream = async (req: Request, res: Response) => {
                     return;
                 }
                 if (!normalizedPartitionAlgorithm) {
-                    finish(400, { message: "partitionAlgorithm is required for new graph" });
+                    finish(400, { message: "partition algorithm is required for new graph" });
                     return;
                 }
                 writeLine(normalizedPartitionAlgorithm);
@@ -694,7 +694,7 @@ const startKafkaStream = async (req: Request, res: Response) => {
             if (promptBuffer.includes("kafka configuration file")) {
                 promptBuffer = "";
                 if (!normalizedKafkaConfigPath) {
-                    finish(400, { message: "kafkaConfigPath is required when useDefaultKafka is false" });
+                    finish(400, { message: "A Kafka configuration path is required when not using default Kafka setup" });
                     return;
                 }
                 writeLine(normalizedKafkaConfigPath);

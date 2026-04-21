@@ -33,15 +33,15 @@ export default function GraphPanelLayout({
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathName = usePathname();
 
   const current = (() => {
     const basePath = Routes.SIDE_MENU_ROUTES.graphPanel;
-    if (!pathname || !pathname.startsWith(basePath)) {
+    if (!pathName || !pathName.startsWith(basePath)) {
       return Routes.GRAPH_PANEL_ROUTES.upload;
     }
 
-    const subPath = pathname.slice(basePath.length) || Routes.GRAPH_PANEL_ROUTES.upload;
+    const subPath = pathName.slice(basePath.length) || Routes.GRAPH_PANEL_ROUTES.upload;
     return subPath === "" ? Routes.GRAPH_PANEL_ROUTES.upload : subPath;
   })();
 
