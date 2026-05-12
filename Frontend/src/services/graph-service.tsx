@@ -16,6 +16,7 @@ import { IGraphDetails } from "@/types/graph-types";
 import {IKnowledgeGraph} from "@/types/graph-types";
 import {authApi} from "./axios";
 import axios from "axios";
+import { ACCESS_TOKEN } from "@/hooks/useAccessToken";
 
 export async function getGraphList(): Promise<{data: IGraphDetails[]}> {
   try {
@@ -164,4 +165,202 @@ export async function deleteGraph(id: string) {
   } catch (err) {
     return Promise.reject();
   }
+}
+
+export type KafkaStreamRequest = {
+        isExistingGraph: boolean;
+        graphId?: string;
+        useDefaultGraphId?: boolean;
+        partitionAlgorithm?: string;
+        isDirected?: boolean;
+        useDefaultKafka: boolean;
+        kafkaConfigPath?: string;
+        topicName: string;
+        kafkaBroker?: string;
+        groupId?: string;
+        offsetReset?: string;
+        numberOfPartitions?: number;
+};
+
+export type KafkaTopicListResponse = {
+    topics: string[];
+};
+
+export type KafkaStartStreamResponse = {
+    message: string;
+    graphId?: string;
+    output?: string;
+    [key: string]: unknown;
+};
+
+export async function startKafkaStream(
+        payload: KafkaStreamRequest
+): Promise<{ data: KafkaStartStreamResponse }> {
+        try {
+                const result = await authApi({
+                        method: "post",
+                        url: `/backend/graph/kafka/stream`,
+                        headers: {
+                                "Cluster-ID": localStorage.getItem("selectedCluster"),
+                        },
+                        data: payload,
+                }).then((res) => res.data);
+
+        const normalized: KafkaStartStreamResponse = {
+            ...result,
+            message: String(result?.message ?? "Kafka streaming started"),
+            graphId: result?.graphId === undefined ? undefined : String(result.graphId),
+            output: result?.output === undefined ? undefined : String(result.output),
+        };
+
+        return { data: normalized };
+        } catch (err) {
+                return Promise.reject(err);
+        }
+}
+
+export async function stopKafkaStream(topicName?: string): Promise<{ data: { message: string } }> {
+        try {
+                console.log("📡 Calling stopKafkaStream API endpoint");
+                const result = await authApi({
+                        method: "post",
+                        url: `/backend/graph/kafka/stream/stop`,
+                        headers: {
+                                "Cluster-ID": localStorage.getItem("selectedCluster"),
+                        },
+            data: {
+                topicName,
+            },
+                }).then((res) => res.data);
+
+                console.log("📨 stopKafkaStream response:", result);
+                return { data: result };
+        } catch (err) {
+                console.error("❌ stopKafkaStream error:", err);
+                return Promise.reject(err);
+        }
+}
+
+export async function getGraphClusterProperties(): Promise<{ data: Record<string, unknown> }> {
+    try {
+        const result = await authApi({
+            method: "get",
+            url: `/backend/graph/info`,
+            headers: {
+                "Cluster-ID": localStorage.getItem("selectedCluster"),
+            },
+        }).then((res) => res.data);
+
+        return {
+            data: result,
+        };
+    } catch (err) {
+        return Promise.reject(err);
+    }
+}
+
+const KAFKA_DEFAULTS_KEY = 'kafkaDefaults';
+
+function getCachedKafkaDefaults(): { broker: string; groupId: string; offsetReset: string } | null {
+    try {
+        const raw = localStorage.getItem(KAFKA_DEFAULTS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function getKafkaStreamingDefaults(): Promise<{ data: Record<string, unknown> }> {
+    try {
+        const result = await authApi({
+            method: "get",
+            url: `/backend/graph/info`,
+            headers: {
+                "Cluster-ID": localStorage.getItem("selectedCluster"),
+            },
+        }).then((res) => res.data);
+
+        const broker = String((result as any)?.broker ?? '').trim();
+        const groupId = String((result as any)?.groupId ?? 'jasminegraph-consumer').trim();
+        const offsetReset = String((result as any)?.offsetReset ?? 'earliest').trim();
+
+        const defaults = {
+            broker,
+            groupId: groupId || 'jasminegraph-consumer',
+            offsetReset: offsetReset || 'earliest',
+        };
+
+        localStorage.setItem(KAFKA_DEFAULTS_KEY, JSON.stringify(defaults));
+
+        return { data: defaults };
+    } catch (err) {
+        return Promise.reject(err);
+    }
+}
+
+export async function getKafkaTopics(): Promise<{ data: KafkaTopicListResponse }> {
+    try {
+        const result = await authApi({
+            method: "get",
+            url: `/backend/graph/kafka/topics`,
+            headers: {
+                "Cluster-ID": localStorage.getItem("selectedCluster"),
+            },
+        }).then((res) => res.data);
+
+        return {
+            data: result,
+        };
+    } catch (err) {
+        return Promise.reject(err);
+    }
+}
+
+export type KafkaStreamConfigStatus = 'active' | 'paused' | 'terminated';
+
+export async function saveKafkaStreamConfig(config: {
+    topicName: string;
+    graphId?: string;
+    isExistingGraph: boolean;
+    useDefaultGraphId?: boolean;
+    partitionAlgorithm?: string;
+    partitionAlgorithmLabel?: string;
+    isDirected?: boolean;
+    graphTypeLabel?: string;
+    useDefaultKafka: boolean;
+    kafkaConfigPath?: string;
+    kafkaBroker?: string;
+    groupId?: string;
+    offsetReset?: string;
+}): Promise<{ data: { id: number; stream_status: KafkaStreamConfigStatus } }> {
+    const result = await authApi({
+        method: 'post',
+        url: '/backend/graph/kafka/configs',
+        headers: { 'Cluster-ID': localStorage.getItem('selectedCluster') },
+        data: config,
+    }).then((res) => res.data);
+    return { data: result.data };
+}
+
+export async function loadKafkaStreamConfigs(): Promise<{ data: any[] }> {
+    const result = await authApi({
+        method: 'get',
+        url: '/backend/graph/kafka/configs',
+        headers: { 'Cluster-ID': localStorage.getItem('selectedCluster') },
+    }).then((res) => res.data);
+    return { data: result.data };
+}
+
+export async function updateKafkaStreamConfigStatus(
+    id: number,
+    status: KafkaStreamConfigStatus,
+    graphId?: string,
+): Promise<{ data: any }> {
+    const result = await authApi({
+        method: 'patch',
+        url: `/backend/graph/kafka/configs/${id}/status`,
+        headers: { 'Cluster-ID': localStorage.getItem('selectedCluster') },
+        data: { status, graphId },
+    }).then((res) => res.data);
+    return { data: result.data };
 }

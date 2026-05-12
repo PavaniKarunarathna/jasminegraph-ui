@@ -12,14 +12,36 @@ limitations under the License.
  */
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 
 const clusterMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const cluster = req.header('Cluster-ID');
+    const authorization = req.header('Authorization');
+
+    console.info('[Cluster Middleware] Incoming request', {
+        method: req.method,
+        path: req.originalUrl,
+        clusterId: cluster ?? null,
+        hasAuthorization: Boolean(authorization),
+    });
+
     if (!cluster) {
+        console.warn('[Cluster Middleware] Rejecting request due to missing Cluster-ID', {
+            method: req.method,
+            path: req.originalUrl,
+            hasAuthorization: Boolean(authorization),
+        });
         return res.status(401).send('Missing Cluster-ID');
     }
-    console.log('Cluster Middleware: ', cluster);	
+
+    if (!authorization) {
+        console.warn('[Cluster Middleware] Authorization header is missing', {
+            method: req.method,
+            path: req.originalUrl,
+            clusterId: cluster,
+        });
+    }
+
+    console.log('Cluster Middleware: ', cluster);
     next();
 };
 

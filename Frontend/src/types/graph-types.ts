@@ -20,6 +20,8 @@ export interface IGraphDetails {
   upload_path: string,
   status: string,
   partitions: IGraphPartitionDetails[],
+  id_algorithm?: number | string,
+  is_directed?: string | boolean | number,
 }
 
 export interface IGraphPartitionDetails {
@@ -54,3 +56,24 @@ export interface IKnowledgeGraph {
 
 
 }
+
+  export interface IKafkaStreamStatus {
+    connected: boolean;
+    streamStatus: 'active' | 'paused' | 'terminated';
+    dbId?: number;
+    topicName: string;
+    graphId?: string;
+    graphName?: string;
+    isExistingGraph: boolean;
+    useDefaultGraphId?: boolean;
+    partitionAlgorithm?: string;
+    partitionAlgorithmLabel?: string;
+    isDirected?: boolean;
+    graphTypeLabel?: string;
+    useDefaultKafka: boolean;
+    kafkaConfigPath?: string;
+    kafkaBroker?: string;
+    groupId?: string;
+    offsetReset?: string;
+    updatedAt?: string;
+  }
