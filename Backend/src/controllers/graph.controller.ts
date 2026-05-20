@@ -13,6 +13,7 @@
  */
 const { TelnetSocket } = require('telnet-stream');
 const net = require('net');
+import { Kafka } from 'kafkajs';
 import { Request, Response } from 'express';
 import {
     GRAPH_REMOVE_COMMAND,
@@ -22,7 +23,11 @@ import {
     TRIANGLE_COUNT_COMMAND,
     PROPERTIES_COMMAND,
     STOP_CONSTRUCT_KG_COMMAND,
-    CONSTRUCT_KG_COMMAND, CONSTRUCT_KG_COMMAND_LOCAL
+    CONSTRUCT_KG_COMMAND,
+    CONSTRUCT_KG_COMMAND_LOCAL,
+    KAFKA_STREAM_COMMAND,
+    STOP_KAFKA_STREAM_COMMAND,
+    KAFKA_TOPICS_COMMAND
 } from './../constants/frontend.server.constants';
 import { ErrorCode, ErrorMsg } from '../constants/error.constants';
 import { getClusterByIdRepo } from '../repository/cluster.repository';
@@ -36,10 +41,16 @@ import {
     KGStatus
 
 } from "../repository/kg-construction-meta.repository";
+import {
+    createKafkaStreamConfigRepo,
+    getKafkaStreamConfigsByClusterRepo,
+    updateKafkaStreamConfigStatusRepo,
+    KafkaStreamConfigStatus,
+    } from "../repository/kafka-stream-config.repository";
 import fs from "fs";
 import path from "path";
 
-import pdfParse from "pdf-parse";
+const pdfParse = require('pdf-parse');
 
 
 export let socket;
@@ -49,6 +60,38 @@ export type IConnection = {
     host: string;
     port: number;
 }
+
+type LegacyGraphRow = {
+    idgraph: number;
+    name: string;
+    upload_path: string;
+    status: string;
+    vertexcount: number;
+    edgecount: number;
+    centralpartitioncount: number;
+    partitions: any[];
+};
+
+type ClusterPropertiesPayload = {
+    partitionCount: number;
+    workersCount: number;
+    version: string;
+    broker: string;
+    groupId: string;
+    offsetReset: string;
+};
+
+const buildFallbackClusterProperties = (connection: IConnection): ClusterPropertiesPayload => {
+    // Fallback when prp command fails. These values should ideally come from the server's prp response.
+    return {
+        partitionCount: 0,
+        workersCount: 0,
+        version: 'unknown',
+        broker: '',
+        groupId: 'jasminegraph-consumer',
+        offsetReset: 'earliest',
+    };
+};
 
 const DEV_MODE = process.env.DEV_MODE === 'true';
 const  HOST = process.env.HOST ;
@@ -89,6 +132,8 @@ export const telnetConnection = (connection: IConnection) => (callback: any) => 
 
         socket.on('error', (err) => {
             console.error('Connection error: ' + err.message);
+            socket = undefined;
+            tSocket = undefined;
         });
 
         socket.on('end', () => {
@@ -96,77 +141,289 @@ export const telnetConnection = (connection: IConnection) => (callback: any) => 
             socket = undefined; // Reset socket when closed
             tSocket = undefined;
         });
+
+        socket.on('close', () => {
+            console.log('Telnet socket closed');
+            socket = undefined;
+            tSocket = undefined;
+        });
     } else {
         callback(tSocket); // Use existing connection
     }
 };
 
-const getGraphList = async (req: Request, res: Response) => {
-    const connection = await getClusterDetails(req);
-    if (!(connection.host || connection.port)) {
-        return res.status(404).send(connection);
-    }
-    try {
-        telnetConnection({host: connection.host, port: connection.port})(() => {
-            let commandOutput = '';
+const executeTelnetCommand = (connection: IConnection, command: string, timeoutMs: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const localSocket = net.createConnection(connection.port, connection.host);
+        const localTelnetSocket = new TelnetSocket(localSocket);
+        let commandOutput = '';
+        let settled = false;
 
-            tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('UTF8_FORMAT');
+        const finalize = (error: Error | null, output: string) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            clearTimeout(timeoutRef);
+            if ((localTelnetSocket as any)?.removeListener) {
+                (localTelnetSocket as any).removeListener('data', onData);
+                (localTelnetSocket as any).removeListener('error', onError);
+            } else if ((localTelnetSocket as any)?.off) {
+                (localTelnetSocket as any).off('data', onData);
+                (localTelnetSocket as any).off('error', onError);
+            }
+            localSocket.removeListener('error', onError);
+            localSocket.removeListener('connect', onConnect);
+            localSocket.end();
+            if (error) {
+                reject(error);
+            } else {
+                resolve(output);
+            }
+        };
+
+        const onData = (buffer: Buffer) => {
+            commandOutput += buffer.toString(UTF8_FORMAT);
+        };
+
+        const onError = (error: Error) => {
+            finalize(error, commandOutput);
+        };
+
+        const onConnect = () => {
+            localTelnetSocket.on('do', (option: number) => {
+                localTelnetSocket.writeWont(option);
             });
 
-      // Write the command to the Telnet server
-      tSocket.write(LIST_COMMAND + '\n', 'UTF8_FORMAT', () => {
-        setTimeout(() => {
-          if (commandOutput) {
-            console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
-              try {
-                  res.status(HTTP[200]).send(JSON.parse(commandOutput));
+            localTelnetSocket.on('will', (option: number) => {
+                localTelnetSocket.writeDont(option);
+            });
 
-              } catch (err) {
-                  return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
-              }          } else {
-            res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
-          }
-        }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
-      });
+            localTelnetSocket.on('data', onData);
+            localTelnetSocket.on('error', onError);
+
+            localTelnetSocket.write(command + '\n', UTF8_FORMAT);
+        };
+
+        const timeoutRef = setTimeout(() => {
+            finalize(null, commandOutput);
+        }, timeoutMs);
+
+        localSocket.on('connect', onConnect);
+        localSocket.on('error', onError);
     });
-  } catch (err) {
-    return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
-  }
+};
+
+const extractFirstJsonPayload = (rawResponse: string): string | null => {
+    const trimmed = rawResponse.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const jsonObjectStart = trimmed.indexOf('{');
+    const jsonObjectEnd = trimmed.lastIndexOf('}');
+    if (jsonObjectStart !== -1 && jsonObjectEnd > jsonObjectStart) {
+        return trimmed.substring(jsonObjectStart, jsonObjectEnd + 1);
+    }
+
+    const jsonArrayStart = trimmed.indexOf('[');
+    const jsonArrayEnd = trimmed.lastIndexOf(']');
+    if (jsonArrayStart !== -1 && jsonArrayEnd > jsonArrayStart) {
+        return trimmed.substring(jsonArrayStart, jsonArrayEnd + 1);
+    }
+
+    return null;
+};
+
+const parseLegacyGraphList = (rawResponse: string): LegacyGraphRow[] => {
+    const lines = rawResponse
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('|'));
+
+    return lines
+        .map((line) => {
+            const values = line.split('|').map((item) => item.trim()).filter((item) => item.length > 0);
+            if (values.length < 4) {
+                return null;
+            }
+
+            const parsedId = Number(values[0]);
+            if (Number.isNaN(parsedId)) {
+                return null;
+            }
+
+            return {
+                idgraph: parsedId,
+                name: values[1],
+                upload_path: values[2],
+                status: values[3],
+                vertexcount: 0,
+                edgecount: 0,
+                centralpartitioncount: 0,
+                partitions: [],
+            } as LegacyGraphRow;
+        })
+        .filter((row): row is LegacyGraphRow => row !== null);
+};
+
+
+
+const fetchKafkaTopicsFromServerCommand = async (connection: IConnection): Promise<string[]> => {
+    const commandOutput = await executeTelnetCommand(connection, KAFKA_TOPICS_COMMAND, TIMEOUT.default);
+    if (!commandOutput.trim()) {
+        return [];
+    }
+
+    const jsonPayload = extractFirstJsonPayload(commandOutput);
+    if (!jsonPayload) {
+        return [];
+    }
+
+    const parsed = JSON.parse(jsonPayload) as { topics?: unknown[] };
+    const topics = Array.isArray(parsed?.topics) ? parsed.topics : [];
+    return topics
+        .map((topic) => String(topic ?? '').trim())
+        .filter((topic) => topic.length > 0)
+        .filter((topic, index, all) => all.indexOf(topic) === index)
+        .sort((a, b) => a.localeCompare(b));
+};
+
+
+
+const getGraphList = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    try {
+        const commandOutput = await executeTelnetCommand(connection, LIST_COMMAND, TIMEOUT.default);
+        if (!commandOutput.trim()) {
+            return res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: '' });
+        }
+
+        console.log(new Date().toLocaleString() + ' - ' + LIST_COMMAND + ' - ' + commandOutput);
+        const jsonPayload = extractFirstJsonPayload(commandOutput);
+        if (jsonPayload) {
+            try {
+                return res.status(HTTP[200]).send(JSON.parse(jsonPayload));
+            } catch (error) {
+                // Fallback to legacy text parser when the response is not strict JSON.
+            }
+        }
+
+        const legacyRows = parseLegacyGraphList(commandOutput);
+        if (legacyRows.length > 0) {
+            return res.status(HTTP[200]).send(legacyRows);
+        }
+
+        return res.status(HTTP[500]).send({
+            code: ErrorCode.ServerError,
+            message: ErrorMsg.ServerError,
+            errorDetails: 'Unable to parse graph list response from server',
+        });
+    } catch (err) {
+        return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+    }
 };
 
 const getClusterProperties = async (req: Request, res: Response) => {
-  const connection = await getClusterDetails(req);
-  if (!(connection.host || connection.port)) {
-    return res.status(404).send(connection);
-  }
-  try {
-    telnetConnection({host: connection.host, port: connection.port})(() => {
-      let commandOutput = '';
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
 
-      tSocket.on('data', (buffer) => {
-        commandOutput += buffer.toString('UTF8_FORMAT');
-      });
+    try {
+        const commandOutput = await executeTelnetCommand(connection, PROPERTIES_COMMAND, TIMEOUT.default);
+        
+        if (!commandOutput.trim()) {
+            console.warn('Empty response from server for properties command');
+            return res.status(HTTP[200]).send(buildFallbackClusterProperties(connection));
+        }
 
-      // Write the command to the Telnet server
-      tSocket.write(PROPERTIES_COMMAND + '\n', 'UTF8_FORMAT', () => {
-        setTimeout(() => {
-          if (commandOutput) {
-              try {
-                res.status(HTTP[200]).send(JSON.parse(commandOutput));
+        // Server returns clean JSON, parse it directly
+        const parsed = JSON.parse(commandOutput) as Record<string, unknown>;
+        const payload: ClusterPropertiesPayload = {
+            partitionCount: Number(parsed.partitionCount ?? 0),
+            workersCount: Number(parsed.workersCount ?? 0),
+            version: String(parsed.version ?? 'unknown'),
+            broker: String(parsed.broker ?? '').trim(),
+            groupId: String(parsed.groupId ?? 'jasminegraph-consumer'),
+            offsetReset: String(parsed.offsetReset ?? 'earliest'),
+        };
 
-              } catch (err) {
-                return res.status(HTTP[500]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
-            }
-          } else {
-            res.status(HTTP[400]).send({ code: ErrorCode.NoResponseFromServer, message: ErrorMsg.NoResponseFromServer, errorDetails: "" });
-          }
-        }, TIMEOUT.default); // Adjust timeout to wait for the server response if needed
-      });
+        console.log(new Date().toLocaleString() + ' - ' + PROPERTIES_COMMAND + ' - Success');
+        return res.status(HTTP[200]).send(payload);
+    } catch (err) {
+        console.error('Failed to fetch cluster properties:', err);
+        return res.status(HTTP[200]).send(buildFallbackClusterProperties(connection));
+    }
+};
+
+const withKafkaAdmin = async <T>(brokers: string[], handler: (admin: any) => Promise<T>) => {
+    const kafka = new Kafka({
+        clientId: 'jasminegraph-ui-backend',
+        brokers,
     });
-  } catch (err) {
-    return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
-  }
+
+    const admin = kafka.admin();
+    await admin.connect();
+    try {
+        return await handler(admin);
+    } finally {
+        await admin.disconnect();
+    }
+};
+
+const getKafkaTopics = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    try {
+        // Try server command first
+        const commandTopics = await fetchKafkaTopicsFromServerCommand(connection);
+        if (commandTopics.length > 0) {
+            return res.status(200).send({ topics: commandTopics, source: 'server-command' });
+        }
+
+        // Fallback: get brokers from query param or cluster properties
+        let brokers = String(req.query?.broker ?? '')
+            .split(',')
+            .map((value: string) => value.trim())
+            .filter(Boolean);
+
+        if (brokers.length === 0) {
+            // Get broker from cluster properties
+            await getClusterProperties(req, res as any);
+            // The response was already sent by getClusterProperties
+            const properties = buildFallbackClusterProperties(connection);
+            if (properties.broker) {
+                brokers = [properties.broker];
+            }
+        }
+
+        if (brokers.length === 0) {
+            return res.status(400).send({ message: 'Unable to resolve Kafka broker. Provide broker in query or configure server properties' });
+        }
+
+        // Connect to Kafka broker and list topics
+        const topics = await withKafkaAdmin<string[]>(brokers, async (admin) => {
+            const topicNames = await admin.listTopics();
+            return topicNames
+                .filter((name: string) => name && !name.startsWith('__'))
+                .sort((a: string, b: string) => a.localeCompare(b));
+        });
+
+        return res.status(200).send({ topics, source: 'broker-admin' });
+    } catch (err: any) {
+        return res.status(500).send({
+            message: 'Failed to fetch Kafka topics',
+            errorDetails: err?.message || err,
+        });
+    }
 };
 
 const uploadGraph = async (req: Request, res: Response) => {
@@ -189,7 +446,7 @@ const uploadGraph = async (req: Request, res: Response) => {
             });
 
 
-            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', 'UTF8_FORMAT', () => {
+            tSocket.write(GRAPH_UPLOAD_COMMAND + '|' + graphName + '|' + filePath + '\n', UTF8_FORMAT, () => {
                 setTimeout(() => {
                     if (commandOutput) {
                         try {
@@ -208,6 +465,293 @@ const uploadGraph = async (req: Request, res: Response) => {
         });
     } catch (err) {
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+    }
+};
+
+const startKafkaStream = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    const {
+        isExistingGraph,
+        graphId,
+        useDefaultGraphId,
+        partitionAlgorithm,
+        isDirected,
+        useDefaultKafka,
+        kafkaConfigPath,
+        topicName,
+    } = req.body;
+
+    console.log('Kafka stream request:', {
+        isExistingGraph,
+        graphId,
+        useDefaultGraphId,
+        partitionAlgorithm,
+        isDirected,
+        useDefaultKafka,
+        kafkaConfigPath,
+        topicName,
+    });
+
+    const normalizedTopicName = String(topicName ?? "").trim();
+    const normalizedGraphId = graphId === undefined || graphId === null ? "" : String(graphId).trim();
+    const normalizedPartitionAlgorithm = partitionAlgorithm === undefined || partitionAlgorithm === null
+        ? ""
+        : String(partitionAlgorithm).trim();
+    const normalizedKafkaConfigPath = kafkaConfigPath === undefined || kafkaConfigPath === null
+        ? ""
+        : String(kafkaConfigPath).trim();
+
+    if (!normalizedTopicName) {
+        return res.status(400).send({ message: "Kafka topicName is required" });
+    }
+
+    if (isExistingGraph && !normalizedGraphId) {
+        return res.status(400).send({ message: "graphId is required for existing graph" });
+    }
+
+    if (!isExistingGraph && useDefaultGraphId === false && !normalizedGraphId) {
+        return res.status(400).send({ message: "graphId is required when not using default graph id" });
+    }
+
+    if (!isExistingGraph && !normalizedPartitionAlgorithm) {
+        return res.status(400).send({ message: "partitionAlgorithm is required for new graph" });
+    }
+
+    if (!isExistingGraph && normalizedPartitionAlgorithm && !["1", "2", "3"].includes(normalizedPartitionAlgorithm)) {
+        return res.status(400).send({ message: "partitionAlgorithm must be one of 1, 2, or 3" });
+    }
+
+    if (useDefaultKafka === false && !normalizedKafkaConfigPath) {
+        return res.status(400).send({ message: "kafkaConfigPath is required when useDefaultKafka is false" });
+    }
+
+    if (normalizedGraphId && !/^\d+$/.test(normalizedGraphId)) {
+        return res.status(400).send({ message: "graphId must be a numeric value" });
+    }
+
+    try {
+        const localSocket = net.createConnection(connection.port, connection.host);
+        const localTelnetSocket = new TelnetSocket(localSocket);
+
+        let commandOutput = "";
+        let promptBuffer = "";
+        let responded = false;
+
+        const timeoutRef = setTimeout(() => {
+            finish(504, {
+                message: "Timed out while waiting for Kafka stream initialization response",
+                output: commandOutput,
+            });
+        }, TIMEOUT.default * 6);
+
+        const cleanup = () => {
+            clearTimeout(timeoutRef);
+            if ((localTelnetSocket as any)?.removeListener) {
+                (localTelnetSocket as any).removeListener('data', onData);
+                (localTelnetSocket as any).removeListener('error', onError);
+                (localTelnetSocket as any).removeListener('do', onDo);
+                (localTelnetSocket as any).removeListener('will', onWill);
+            } else if ((localTelnetSocket as any)?.off) {
+                (localTelnetSocket as any).off('data', onData);
+                (localTelnetSocket as any).off('error', onError);
+                (localTelnetSocket as any).off('do', onDo);
+                (localTelnetSocket as any).off('will', onWill);
+            }
+            localSocket.removeListener('error', onError);
+            localSocket.removeListener('connect', onConnect);
+            localSocket.end();
+        };
+
+        const getResolvedGraphId = () => {
+            if (graphId) {
+                return String(graphId);
+            }
+            const defaultIdMatch = commandOutput.match(/do you use default graph id:\s*(\d+)/i);
+            return defaultIdMatch?.[1];
+        };
+
+        const finish = (status: number, payload: any) => {
+            if (responded) return;
+            responded = true;
+            cleanup();
+            res.status(status).send(payload);
+        };
+
+        const writeLine = (value: string) => {
+            localTelnetSocket.write(value + "\n", UTF8_FORMAT);
+        };
+
+        const onDo = (option: number) => {
+            localTelnetSocket.writeWont(option);
+        };
+
+        const onWill = (option: number) => {
+            localTelnetSocket.writeDont(option);
+        };
+
+        const onError = (err: Error) => {
+            console.error('Telnet socket error:', err.message);
+            finish(502, {
+                message: 'Telnet socket error during Kafka stream initialization',
+                error: err.message,
+                output: commandOutput,
+            });
+        };
+
+        const onData = (buffer: Buffer) => {
+            const chunk = buffer.toString("utf8");
+            commandOutput += chunk;
+            promptBuffer += chunk.toLowerCase();
+
+            if (promptBuffer.includes("invalid message format")) {
+                finish(400, { message: 'Server does not support kafka stream command', output: commandOutput });
+                return;
+            }
+
+            if (promptBuffer.includes("error:")) {
+                finish(400, { message: "Server returned an error during Kafka initialization", output: commandOutput });
+                return;
+            }
+
+            if (promptBuffer.includes("server is busy")) {
+                finish(503, {
+                    message: "JasmineGraph server is busy. Please try again later.",
+                    output: commandOutput,
+                });
+                return;
+            }
+
+            if (promptBuffer.includes("do you want to stream into existing graph")) {
+                promptBuffer = "";
+                writeLine(isExistingGraph ? "y" : "n");
+                return;
+            }
+
+            if (promptBuffer.includes("send the existing graph id")) {
+                promptBuffer = "";
+                if (!normalizedGraphId) {
+                    finish(400, { message: "graph id is required for existing graph" });
+                    return;
+                }
+                writeLine(normalizedGraphId);
+                return;
+            }
+
+            if (promptBuffer.includes("do you use default graph id")) {
+                promptBuffer = "";
+                if (isExistingGraph) {
+                    return;
+                }
+                writeLine(useDefaultGraphId === false ? "n" : "y");
+                return;
+            }
+
+            if (promptBuffer.includes("input your graph id")) {
+                promptBuffer = "";
+                if (isExistingGraph) {
+                    return;
+                }
+                if (!normalizedGraphId) {
+                    finish(400, { message: "graphId is required when not using default graph id" });
+                    return;
+                }
+                writeLine(normalizedGraphId);
+                return;
+            }
+
+            if (promptBuffer.includes("choose an option")) {
+                promptBuffer = "";
+                if (isExistingGraph) {
+                    return;
+                }
+                if (!normalizedPartitionAlgorithm) {
+                    finish(400, { message: "partition algorithm is required for new graph" });
+                    return;
+                }
+                writeLine(normalizedPartitionAlgorithm);
+                return;
+            }
+
+            if (promptBuffer.includes("is this graph directed")) {
+                promptBuffer = "";
+                if (isExistingGraph) {
+                    return;
+                }
+                writeLine(isDirected ? "y" : "n");
+                return;
+            }
+
+            if (promptBuffer.includes("default kafka consumer")) {
+                promptBuffer = "";
+                writeLine(useDefaultKafka ? "y" : "n");
+                return;
+            }
+
+            if (promptBuffer.includes("kafka configuration file")) {
+                promptBuffer = "";
+                if (!normalizedKafkaConfigPath) {
+                    finish(400, { message: "A Kafka configuration path is required when not using default Kafka setup" });
+                    return;
+                }
+                writeLine(normalizedKafkaConfigPath);
+                return;
+            }
+
+            if (promptBuffer.includes("send kafka topic name")) {
+                promptBuffer = "";
+                writeLine(normalizedTopicName);
+                return;
+            }
+
+            if (promptBuffer.includes("received the kafka topic") || promptBuffer.includes("start listening to")) {
+                finish(200, {
+                    message: "Kafka streaming started",
+                    output: commandOutput,
+                    graphId: getResolvedGraphId(),
+                });
+            }
+        };
+
+        const onConnect = () => {
+            localTelnetSocket.on('do', onDo);
+            localTelnetSocket.on('will', onWill);
+            localTelnetSocket.on('data', onData);
+            localTelnetSocket.on('error', onError);
+            localTelnetSocket.write(KAFKA_STREAM_COMMAND + "\n", UTF8_FORMAT);
+        };
+
+        localSocket.on('connect', onConnect);
+        localSocket.on('error', onError);
+    } catch (err) {
+        console.error("❌ Error in startKafkaStream:", err);
+        return res.status(500).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
+    }
+};
+
+const stopKafkaStream = async (req: Request, res: Response) => {
+    const connection = await getClusterDetails(req);
+    if (!(connection.host && connection.port)) {
+        return res.status(404).send(connection);
+    }
+
+    try {
+        const topicName = String(req.body?.topicName ?? '').trim();
+        const stopCommand = topicName
+            ? `${STOP_KAFKA_STREAM_COMMAND}|${topicName}`
+            : STOP_KAFKA_STREAM_COMMAND;
+        const result = await executeTelnetCommand(connection, stopCommand, TIMEOUT.default * 2);
+        const normalizedOutput = String(result ?? '').trim();
+        
+        return res.status(200).send({
+            message: normalizedOutput || "Kafka streaming stopped successfully",
+        });
+    } catch (err) {
+        console.error("Error in stopKafkaStream:", err);
+        return res.status(500).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 };
 
@@ -652,7 +1196,7 @@ const removeGraph = async (req: Request, res: Response) => {
             let commandOutput = '';
 
             tSocket.on('data', (buffer) => {
-                commandOutput += buffer.toString('UTF8_FORMAT');
+                commandOutput += buffer.toString(UTF8_FORMAT);
             });
 
             // Write the command to the Telnet server
@@ -830,5 +1374,75 @@ const getGraphData = async (req, res) => {
         return res.status(HTTP[200]).send({ code: ErrorCode.ServerError, message: ErrorMsg.ServerError, errorDetails: err });
     }
 }
+export const createKafkaStreamConfig = async (req: Request, res: Response) => {
+    const clusterId = req.header('Cluster-ID');
+    if (!clusterId) {
+        return res.status(400).send({ message: 'Cluster-ID header is required' });
+    }
+    const {
+        topicName, graphId, isExistingGraph, useDefaultGraphId,
+        partitionAlgorithm, partitionAlgorithmLabel, isDirected, graphTypeLabel,
+        useDefaultKafka, kafkaConfigPath, kafkaBroker, groupId, offsetReset,
+    } = req.body;
+    if (!topicName) {
+        return res.status(400).send({ message: 'topicName is required' });
+    }
+    try {
+        const config = await createKafkaStreamConfigRepo({
+            topic_name: topicName,
+            graph_id: graphId ?? null,
+            is_existing_graph: !!isExistingGraph,
+            use_default_graph_id: useDefaultGraphId ?? null,
+            partition_algorithm: partitionAlgorithm ?? null,
+            partition_algorithm_label: partitionAlgorithmLabel ?? null,
+            is_directed: isDirected ?? null,
+            graph_type_label: graphTypeLabel ?? null,
+            use_default_kafka: useDefaultKafka !== false,
+            kafka_config_path: kafkaConfigPath ?? null,
+            kafka_broker: kafkaBroker ?? null,
+            group_id: groupId ?? null,
+            offset_reset: offsetReset ?? null,
+            stream_status: 'active',
+            cluster_id: clusterId,
+        });
+        return res.status(201).send({ data: config });
+    } catch (err: any) {
+        return res.status(500).send({ message: 'Failed to save Kafka stream config', errorDetails: err?.message || err });
+    }
+};
 
-export { getGraphList, uploadGraph, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};
+export const getKafkaStreamConfigs = async (req: Request, res: Response) => {
+    const clusterId = req.header('Cluster-ID');
+    if (!clusterId) {
+        return res.status(400).send({ message: 'Cluster-ID header is required' });
+    }
+    try {
+        const configs = await getKafkaStreamConfigsByClusterRepo(clusterId);
+        return res.status(200).send({ data: configs });
+    } catch (err: any) {
+        return res.status(500).send({ message: 'Failed to fetch Kafka stream configs', errorDetails: err?.message || err });
+    }
+};
+
+export const updateKafkaStreamConfigStatus = async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).send({ message: 'Valid id param is required' });
+    }
+    const { status, graphId } = req.body;
+    const allowedStatuses: KafkaStreamConfigStatus[] = ['active', 'paused', 'terminated'];
+    if (!allowedStatuses.includes(status)) {
+        return res.status(400).send({ message: `status must be one of: ${allowedStatuses.join(', ')}` });
+    }
+    try {
+        const updated = await updateKafkaStreamConfigStatusRepo(id, status, graphId);
+        if (!updated) {
+            return res.status(404).send({ message: 'Kafka stream config not found' });
+        }
+        return res.status(200).send({ data: updated });
+    } catch (err: any) {
+        return res.status(500).send({ message: 'Failed to update Kafka stream config status', errorDetails: err?.message || err });
+    }
+};
+
+export { getGraphList, uploadGraph, startKafkaStream, stopKafkaStream, getKafkaTopics, removeGraph, triangleCount, getGraphVisualization, getGraphData, getClusterProperties, getDataFromHadoop ,constructKGHadoop , validateHDFS};
